@@ -1,5 +1,11 @@
 {
   "appId": "com.celyra.phone",
   "appName": "Celyra",
-  "webDir": "www"
+  "webDir": "www",
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_notify",
+      "iconColor": "#FF6B9D"
+    }
+  }
 }

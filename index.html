@@ -1319,8 +1319,8 @@ setInterval(async()=>{
   if(Date.now()-lt<c.pro*60000)continue;
   busyP[c.id]=1;
   try{
-   const txt=await ai(c,[...ctxOf(H),{r:'me',c:'（系统指令：请你现在主动给我发一条消息，自然地开启或延续话题，符合人设，不要提到这条指令）'}]);
-   H.push({r:'ai',c:txt,t:Date.now()});delete S.hidden[c.id];
+   const txt=await ai(c,[...ctxOf(H),{r:'me',c:'（系统指令：请你现在主动给我发一条消息，自然地开启或延续话题，符合人设；可以像真人一样连发 1~3 条短消息，每条单独一行；不要提到这条指令）'}]);
+   String(txt).split(/\n+/).map(x=>x.trim()).filter(Boolean).slice(0,6).forEach((p,k)=>H.push({r:'ai',c:p,t:Date.now()+k*1200}));delete S.hidden[c.id];
    toast(`${c.remark||c.name} 发来一条新消息`);refresh(c);
   }catch(e){}
   c.proAt=Date.now();save();busyP[c.id]=0}
@@ -7711,9 +7711,9 @@ let bt;window.celBanner=(title,text,tap,ch)=>{document.querySelectorAll('.cbn').
 /* ===== 微信：新消息横幅（谁发的）+ 会话列表未读角标 ===== */
 let seen=Date.now();
 const unreadOf=c=>{const b=Math.max(S.wxRead[c.id]||0,S.wxBase||0);return (S.chats['wx'+c.id]||[]).filter(m=>m.r==='ai'&&!m.rc&&m.t>b).length};
-setInterval(()=>{try{const now=Date.now();let hit=null;
- friends().forEach(c=>{(S.chats['wx'+c.id]||[]).forEach(m=>{if(m.r==='ai'&&!m.rc&&m.t>seen&&m.t<=now){const inChat=(S.wxRead[c.id]||0)>now-2600&&document.querySelector('#cd');if(!inChat&&(!hit||m.t>hit.m.t))hit={c,m}}})});
- seen=now;if(hit)celBanner(nm(hit.c),hit.m.c,()=>{openApp('wechat')},'微');
+setInterval(()=>{try{const now=Date.now();const hits=[];
+ friends().forEach(c=>{(S.chats['wx'+c.id]||[]).forEach(m=>{if(m.r==='ai'&&!m.rc&&m.t>seen&&m.t<=now){const inChat=(S.wxRead[c.id]||0)>now-2600&&document.querySelector('#cd');if(!inChat)hits.push({c,m})}})});
+ seen=now;hits.sort((a,b)=>a.m.t-b.m.t).slice(0,6).forEach(h=>celBanner(nm(h.c),h.m.c,()=>{openApp('wechat')},'微',h.c.avatar));
  document.querySelectorAll('.app .fr.rd[data-id]').forEach(row=>{const c=fOf(row.dataset.id),av=row.querySelector('.av');if(!c||!av)return;const n=unreadOf(c);let b=av.querySelector('.wxb');
   if(!n){if(b)b.remove();return}if(!b){b=document.createElement('i');b.className='wxb';av.appendChild(b)}b.textContent=n>99?'99+':n})}catch(e){}},1500);
 
@@ -8341,6 +8341,8 @@ function mzApp(r){
 .bn-sw{position:relative;width:50px;height:30px;border-radius:15px;background:#d6dae8;flex:none;transition:.2s}.bn-sw::after{content:"";position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 2px 5px rgba(0,0,0,.2)}.bn-sw.on{background:linear-gradient(135deg,#ff7aa8,#ffa94d)}.bn-sw.on::after{left:23px}
 .bn-ch{display:flex;gap:8px}.bn-ch span{padding:6px 16px;border-radius:14px;background:#fff;font-size:13px;border:2px solid #e7ebfa}.bn-ch span.on{background:#6f9bff;color:#fff;border-color:#6f9bff}
 .bn-q{font-size:13px;padding:8px 0;border-top:1px solid #eef0f8;line-height:1.5}.bn-q em{font-style:normal;color:#8a92b0;font-size:11.5px;display:block}
+.cbn .ci.av{border-radius:50%}
+body.nosb #home .sb{display:none}
 </style>
 <script>
 (()=>{
@@ -8351,11 +8353,14 @@ const native=()=>!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.
 const fmtT=t=>new Date(t).toLocaleString('zh-CN',{hour12:false,month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
 /* 有预约消息的角色，实时的主动发消息先让路，避免同一个角色发两条 */
 window.__bgHas=id=>{const b=S.bgn;return !!(b&&b.on&&b.q.some(x=>x.cid===id))};
-const sched=async it=>{const l=LN();if(!l)return;try{await l.schedule({notifications:[{id:it.nid,title:it.name,body:String(it.txt).slice(0,100),schedule:{at:new Date(it.t),allowWhileIdle:true},extra:{cid:it.cid}}]})}catch(e){}};
-const unsched=async ids=>{const l=LN();if(l&&ids.length)try{await l.cancel({notifications:ids.map(id=>({id}))})}catch(e){}};
+const CH='celyra_msg';let chOk=0;
+const ensureCh=async()=>{const l=LN();if(!l||chOk)return;try{await l.createChannel({id:CH,name:'角色消息',description:'好友发来的消息',importance:5,visibility:1,vibration:true,lights:true});chOk=1}catch(e){}};
+const lines=t=>String(t).split(/\n+/).map(x=>x.trim()).filter(Boolean).slice(0,6);
+const sched=async it=>{const l=LN();if(!l)return;await ensureCh();try{await l.schedule({notifications:lines(it.txt).map((p,k)=>({id:it.nid*10+k,title:it.name,body:p.slice(0,120),channelId:CH,schedule:{at:new Date(it.t+k*1500),allowWhileIdle:true},extra:{cid:it.cid}}))})}catch(e){}};
+const unsched=async its=>{const l=LN();if(!l||!its.length)return;try{await l.cancel({notifications:its.flatMap(x=>[0,1,2,3,4,5].map(k=>({id:x.nid*10+k})))})}catch(e){}};
 /* 到点的预约消息，写进聊天记录（时间用预约的发送时间） */
 const flush=()=>{const b=B(),now=Date.now(),due=b.q.filter(x=>x.t<=now);if(!due.length)return;b.q=b.q.filter(x=>x.t>now);
- due.sort((a,c)=>a.t-c.t).forEach(it=>{const H=S.chats['wx'+it.cid]=S.chats['wx'+it.cid]||[];H.push({r:'ai',c:it.txt,t:it.t});delete S.hidden[it.cid]});
+ due.sort((a,c)=>a.t-c.t).forEach(it=>{const H=S.chats['wx'+it.cid]=S.chats['wx'+it.cid]||[];lines(it.txt).forEach((p,k)=>H.push({r:'ai',c:p,t:it.t+k*1500,q:1}));delete S.hidden[it.cid]});
  save();if(!document.hidden&&window.celBanner){const it=due[due.length-1];celBanner(it.name,it.txt,()=>openApp('wechat'),'微')}};
 /* 页面开着时，提前把之后的消息生成好并预约系统通知；每次只生成一条，错开 API 花费 */
 let gen=0;
@@ -8363,7 +8368,7 @@ const refill=async()=>{const b=B();if(!b.on||gen||document.hidden||!S.api||!S.ap
  for(const c of S.contacts){if(!c.pro)continue;const mine=b.q.filter(x=>x.cid===c.id);if(mine.length>=b.perC)continue;
   gen=1;try{const H=S.chats['wx'+c.id]=S.chats['wx'+c.id]||[];
    const t=Math.max(Date.now(),c.proAt||0,H.length?(H[H.length-1].t||0):0,...mine.map(x=>x.t))+c.pro*60000*(.85+Math.random()*.3);
-   const txt=await window.ai(c,[...H.slice(-10).filter(m=>typeof m.c==='string').map(m=>({r:m.r,c:m.c})),{r:'me',c:`（系统指令：请你主动给我发一条消息，这条消息会在 ${fmtT(t)} 发出，请让内容符合那个时间点的情境，自然地开启或延续话题，符合人设，不要提到这条指令）`}]);
+   const txt=await window.ai(c,[...H.slice(-10).filter(m=>typeof m.c==='string').map(m=>({r:m.r,c:m.c})),{r:'me',c:`（系统指令：请你主动给我发一条消息，这条消息会在 ${fmtT(t)} 发出，请让内容符合那个时间点的情境，自然地开启或延续话题，符合人设；可以像真人一样连发 1~3 条短消息，每条单独一行；不要提到这条指令）`}]);
    if(txt&&b.on){const it={id:uid(),cid:c.id,name:nm(c),txt:String(txt),t,nid:b.n++};b.q.push(it);save();await sched(it)}}catch(e){}
   gen=0;return}};
 setInterval(()=>{try{flush();refill()}catch(e){}},20000);
@@ -8378,6 +8383,29 @@ const exp=async()=>{const json=JSON.stringify(S),f=new File([json],'celyra-backu
  try{await navigator.clipboard.writeText(json);toast('已复制到剪贴板，去粘贴保存')}catch(e){toast('导出失败')}};
 const imp=()=>{const i=document.createElement('input');i.type='file';i.accept='.json,application/json';i.onchange=()=>{const f=i.files[0];if(!f)return;f.text().then(t=>{try{const o=JSON.parse(t);if(!o||typeof o!=='object')throw 0;if(!confirm('导入会覆盖当前全部数据，确定吗？'))return;localStorage.setItem('yy',JSON.stringify(o));location.reload()}catch(e){toast('这个文件不对')}})};i.click()};
 
+/* ===== 横幅：每条消息各弹一次（排队），带好友头像 ===== */
+const BQ=[];let bshow=0;
+window.celBanner=(title,text,tap,ch,av)=>{BQ.push([title,text,tap,ch,av]);if(!bshow)nextB()};
+const nextB=()=>{const x=BQ.shift();if(!x){bshow=0;return}bshow=1;document.querySelectorAll('.cbn').forEach(e=>e.remove());const [title,text,tap,ch,av]=x;
+ let a=av;if(!a){const c=(S.contacts||[]).find(c=>nm(c)===title);if(c&&c.avatar)a=c.avatar}
+ const b=document.createElement('div');b.className='cbn';b.innerHTML=`${a?`<div class="ci av" style="background-image:url('${a}');background-size:cover;background-position:center"></div>`:`<div class="ci">${esc((ch||title)[0])}</div>`}<div><b>${esc(title)}</b><span>${esc(String(text).replace(/\\n/g,' ').slice(0,40))}</span></div>`;
+ b.onclick=()=>{b.remove();tap&&tap()};document.body.append(b);setTimeout(()=>{b.classList.add('out');setTimeout(()=>{b.remove();nextB()},300)},2600)};
+/* ===== 后台保活（前台服务）：页面切到后台继续跑，角色发了新消息就逐条弹系统通知 ===== */
+const BM=()=>window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.BackgroundMode;
+const keepOn=async()=>{const p=BM();if(!p)return false;const st={title:'Celyra',text:'正在后台接收角色消息',silent:false,hidden:false,disableWebViewOptimization:true,allowClose:false};
+ try{try{p.requestNotificationsPermission&&await p.requestNotificationsPermission()}catch(e){}try{p.setSettings&&await p.setSettings(st)}catch(e){}try{await p.enable(st)}catch(e){await p.enable()}try{p.disableWebViewOptimizations&&await p.disableWebViewOptimizations()}catch(e){}return true}catch(e){return false}};
+const keepOff=async()=>{const p=BM();if(p)try{await p.disable()}catch(e){}};
+let seenN=Date.now();
+setInterval(async()=>{try{const now=Date.now();if(!document.hidden||!LN()){seenN=now;return}await ensureCh();const items=[];
+ (S.contacts||[]).forEach(c=>{(S.chats['wx'+c.id]||[]).forEach(m=>{if(m.r==='ai'&&!m.rc&&!m.q&&typeof m.c==='string'&&m.t>seenN&&m.t<=now)items.push({c,m})})});seenN=now;
+ if(!items.length)return;const b=B();await LN().schedule({notifications:items.slice(0,10).map((x,k)=>({id:(b.n++)*10,title:nm(x.c),body:x.m.c.slice(0,120),channelId:CH,schedule:{at:new Date(now+300+k*1200),allowWhileIdle:true},extra:{cid:x.c.id}}))});save()}catch(e){}},2500);
+setTimeout(()=>{if(B().keep)keepOn()},1500);
+/* ===== 应用管理：是否显示小手机自己的状态栏（安装版自带时间电量，默认关） ===== */
+const sbApply=()=>{const on=S.sbar===undefined?!native():!!S.sbar;document.body.classList.toggle('nosb',!on)};sbApply();
+const am0=window.appmgr;window.appmgr=function(r){am0.apply(this,arguments);try{const body=r.querySelector('.appmgr-page .body');if(!body)return;const on=S.sbar===undefined?!native():!!S.sbar;
+ body.insertAdjacentHTML('afterbegin',`<div class="appmgr-section-title">状态栏</div><div class="appmgr-card"><div class="bn-r" style="padding:12px 14px"><div><b>显示小手机的状态栏</b><br><small style="color:#8a8a8f">安装版手机自带时间和电量，建议关闭；状态栏被盖住或显示不全时再打开</small></div><div class="bn-sw${on?' on':''}" id="sbsw"></div></div></div>`);
+ r.querySelector('#sbsw').onclick=e=>{S.sbar=e.target.classList.contains('on')?0:1;e.target.classList.toggle('on');save();sbApply()}}catch(e){}};
+
 /* ===== 应用：消息提醒 ===== */
 N.bgn='消息提醒';P.bgn='M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0';
 const oa=openApp;openApp=function(id){if(id!=='bgn')return oa(id);const r=document.createElement('div');r.className='app';document.body.append(r);stack.push(r);document.body.classList.add('in');bgnApp(r)};
@@ -8386,19 +8414,22 @@ function bgnApp(r){
   r.innerHTML=`<div class="bn"><div class="bn-top"><button class="bn-ic" id="bk"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><b>消息提醒</b></div><div class="bn-bd">
   <div class="bn-c"><h4>${nat?'✅ 当前是安装版':'⚠️ 当前是浏览器'}</h4><p>${nat?'预约好的消息，即使你切到别的应用、锁屏，到点也会在锁屏上弹通知。':'浏览器里没法在后台、锁屏时提醒，只有页面开着才会收到。要后台提醒，请用安装版（APK）。'}</p></div>
   <div class="bn-c"><div class="bn-r"><div><b>后台消息预约</b><br><small>开了才会提前生成并预约通知</small></div><div class="bn-sw${b.on?' on':''}" id="sw"></div></div>
-   <div class="bn-r"><small>每个角色提前预约</small><div class="bn-ch">${[1,2,3].map(n=>`<span data-n="${n}" class="${b.perC===n?'on':''}">${n} 条</span>`).join('')}</div></div>
+   <div class="bn-r"><small>每个角色提前预约</small><div class="bn-ch">${[2,4,6,10].map(n=>`<span data-n="${n}" class="${b.perC===n?'on':''}">${n} 条</span>`).join('')}</div></div>
    <p>规则：只有在角色里开了「主动发消息」，并设了间隔的角色才会预约。预约会在你打开小手机时提前调用 API 生成，每个角色最多 ${b.perC} 条，每次只生成一条。预约后你再和 TA 聊的内容，不会影响已经写好的这几条。</p></div>
+  <div class="bn-c"><div class="bn-r"><div><b>后台保活</b><br><small>开了之后通知栏会常驻一条通知，小手机切到后台也继续运行，角色发多少条都会逐条弹通知，没有条数限制</small></div><div class="bn-sw${b.keep?' on':''}" id="kp"></div></div><button class="bn-bt g" id="bt">忽略电池优化（推荐）</button></div>
   <div class="bn-c"><h4>通知权限</h4><button class="bn-bt" id="pm">开启通知权限</button><button class="bn-bt g" id="ts">10 秒后发一条测试通知</button>
    <p>通知没弹时，去手机「设置 → 应用 → Celyra」打开通知，并把电池设成「不限制」或允许自启动、后台运行。部分手机（vivo、OPPO、小米）默认会杀后台。</p></div>
   <div class="bn-c"><h4>待发送（${b.q.length}）</h4>${b.q.length?b.q.slice().sort((a,c)=>a.t-c.t).map(x=>`<div class="bn-q"><b>${esc(x.name)}</b> · ${fmtT(x.t)}<em>${esc(String(x.txt).slice(0,50))}</em></div>`).join(''):'<p>还没有预约的消息</p>'}</div>
   <div class="bn-c"><h4>存档</h4><p>换成安装版之前，先在这里导出，再到安装版里导入。浏览器和安装版的数据是分开的，不导出会丢。</p><button class="bn-bt" id="ex">导出存档</button><button class="bn-bt g" id="im">导入存档</button></div>
   </div></div>`;
   const q=s=>r.querySelector(s);q('#bk').onclick=()=>closeApp();
-  q('#sw').onclick=async()=>{b.on=b.on?0:1;if(!b.on){await unsched(b.q.map(x=>x.nid));b.q=[]}save();draw();if(b.on)refill()};
+  q('#sw').onclick=async()=>{b.on=b.on?0:1;if(!b.on){await unsched(b.q);b.q=[]}save();draw();if(b.on)refill()};
   r.querySelectorAll('[data-n]').forEach(e=>e.onclick=()=>{b.perC=+e.dataset.n;save();draw()});
-  q('#pm').onclick=async()=>{try{if(LN()){const x=await LN().requestPermissions();toast(x.display==='granted'?'通知已开启':'没有授权，请去系统设置里开启')}else if(window.Notification){const x=await Notification.requestPermission();toast(x==='granted'?'通知已开启':'没有授权')}else toast('这个环境不支持通知')}catch(e){toast('请求失败')}};
-  q('#ts').onclick=async()=>{const at=Date.now()+10000;if(LN()){try{await LN().schedule({notifications:[{id:2147483000,title:'消息提醒',body:'测试通知：锁屏或切走应用，10 秒后就会弹出来',schedule:{at:new Date(at),allowWhileIdle:true}}]});toast('已预约，现在可以锁屏试试')}catch(e){toast('预约失败，先开启通知权限')}}else{toast('10 秒后提醒（需页面保持打开）');setTimeout(()=>{try{new Notification('消息提醒',{body:'测试通知'})}catch(e){window.celBanner&&celBanner('消息提醒','测试通知')}},10000)}};
-  q('#ex').onclick=exp;q('#im').onclick=imp};
+  q('#pm').onclick=async()=>{try{if(LN()){const x=await LN().requestPermissions();await ensureCh();toast(x.display==='granted'?'通知已开启':'没有授权，请去系统设置里开启')}else if(window.Notification){const x=await Notification.requestPermission();toast(x==='granted'?'通知已开启':'没有授权')}else toast('这个环境不支持通知')}catch(e){toast('请求失败')}};
+  q('#ts').onclick=async()=>{const at=Date.now()+10000;if(LN()){try{await ensureCh();await LN().schedule({notifications:[{id:2147483000,channelId:CH,title:'消息提醒',body:'测试通知：锁屏或切走应用，10 秒后就会弹出来',schedule:{at:new Date(at),allowWhileIdle:true}}]});toast('已预约，现在可以锁屏试试')}catch(e){toast('预约失败，先开启通知权限')}}else{toast('10 秒后提醒（需页面保持打开）');setTimeout(()=>{try{new Notification('消息提醒',{body:'测试通知'})}catch(e){window.celBanner&&celBanner('消息提醒','测试通知')}},10000)}};
+  q('#ex').onclick=exp;q('#im').onclick=imp;
+  q('#kp').onclick=async()=>{b.keep=b.keep?0:1;save();if(b.keep){const ok=await keepOn();toast(ok?'后台保活已开启':'这个安装包里没有保活组件');if(!ok){b.keep=0;save()}}else await keepOff();draw()};
+  q('#bt').onclick=async()=>{const p=BM();if(!p)return toast('这个安装包里没有保活组件');try{await (p.requestDisableBatteryOptimizations||p.disableBatteryOptimizations).call(p)}catch(e){toast('请到系统设置里把电池改成「不限制」')}}};
  draw()}
 /* 桌面图标：放进第三页的空格里 */
 const rh2=window.renderHome;window.renderHome=function(){const L=S.layout;if(![...L.grid,...L.dock].includes('bgn')){const i=L.grid.findIndex((x,j)=>j>=40&&!x);if(i>-1){L.grid[i]='bgn';save()}}return rh2.apply(this,arguments)};
