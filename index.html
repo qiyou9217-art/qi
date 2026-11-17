@@ -8406,6 +8406,7 @@ const am0=window.appmgr;window.appmgr=function(r){am0.apply(this,arguments);try{
  body.insertAdjacentHTML('afterbegin',`<div class="appmgr-section-title">状态栏</div><div class="appmgr-card"><div class="bn-r" style="padding:12px 14px"><div><b>显示小手机的状态栏</b><br><small style="color:#8a8a8f">安装版手机自带时间和电量，建议关闭；状态栏被盖住或显示不全时再打开</small></div><div class="bn-sw${on?' on':''}" id="sbsw"></div></div></div>`);
  r.querySelector('#sbsw').onclick=e=>{S.sbar=e.target.classList.contains('on')?0:1;e.target.classList.toggle('on');save();sbApply()}}catch(e){}};
 
+const impClip=async()=>{try{const t=await navigator.clipboard.readText(),o=JSON.parse(t);if(!o||typeof o!=='object')throw 0;if(!confirm('导入会覆盖当前全部数据，确定吗？'))return;localStorage.setItem('yy',JSON.stringify(o));location.reload()}catch(e){toast('剪贴板里没有有效的存档')}};
 /* ===== 应用：消息提醒 ===== */
 N.bgn='消息提醒';P.bgn='M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0';
 const oa=openApp;openApp=function(id){if(id!=='bgn')return oa(id);const r=document.createElement('div');r.className='app';document.body.append(r);stack.push(r);document.body.classList.add('in');bgnApp(r)};
@@ -8420,14 +8421,14 @@ function bgnApp(r){
   <div class="bn-c"><h4>通知权限</h4><button class="bn-bt" id="pm">开启通知权限</button><button class="bn-bt g" id="ts">10 秒后发一条测试通知</button>
    <p>通知没弹时，去手机「设置 → 应用 → Celyra」打开通知，并把电池设成「不限制」或允许自启动、后台运行。部分手机（vivo、OPPO、小米）默认会杀后台。</p></div>
   <div class="bn-c"><h4>待发送（${b.q.length}）</h4>${b.q.length?b.q.slice().sort((a,c)=>a.t-c.t).map(x=>`<div class="bn-q"><b>${esc(x.name)}</b> · ${fmtT(x.t)}<em>${esc(String(x.txt).slice(0,50))}</em></div>`).join(''):'<p>还没有预约的消息</p>'}</div>
-  <div class="bn-c"><h4>存档</h4><p>换成安装版之前，先在这里导出，再到安装版里导入。浏览器和安装版的数据是分开的，不导出会丢。</p><button class="bn-bt" id="ex">导出存档</button><button class="bn-bt g" id="im">导入存档</button></div>
+  <div class="bn-c"><h4>存档</h4><p>换成安装版之前，先在这里导出，再到安装版里导入。浏览器和安装版的数据是分开的，不导出会丢。</p><button class="bn-bt" id="ex">导出存档</button><button class="bn-bt g" id="im">导入存档（选文件）</button><button class="bn-bt g" id="ip">从剪贴板导入存档</button></div>
   </div></div>`;
   const q=s=>r.querySelector(s);q('#bk').onclick=()=>closeApp();
   q('#sw').onclick=async()=>{b.on=b.on?0:1;if(!b.on){await unsched(b.q);b.q=[]}save();draw();if(b.on)refill()};
   r.querySelectorAll('[data-n]').forEach(e=>e.onclick=()=>{b.perC=+e.dataset.n;save();draw()});
   q('#pm').onclick=async()=>{try{if(LN()){const x=await LN().requestPermissions();await ensureCh();toast(x.display==='granted'?'通知已开启':'没有授权，请去系统设置里开启')}else if(window.Notification){const x=await Notification.requestPermission();toast(x==='granted'?'通知已开启':'没有授权')}else toast('这个环境不支持通知')}catch(e){toast('请求失败')}};
   q('#ts').onclick=async()=>{const at=Date.now()+10000;if(LN()){try{await ensureCh();await LN().schedule({notifications:[{id:2147483000,channelId:CH,title:'消息提醒',body:'测试通知：锁屏或切走应用，10 秒后就会弹出来',schedule:{at:new Date(at),allowWhileIdle:true}}]});toast('已预约，现在可以锁屏试试')}catch(e){toast('预约失败，先开启通知权限')}}else{toast('10 秒后提醒（需页面保持打开）');setTimeout(()=>{try{new Notification('消息提醒',{body:'测试通知'})}catch(e){window.celBanner&&celBanner('消息提醒','测试通知')}},10000)}};
-  q('#ex').onclick=exp;q('#im').onclick=imp;
+  q('#ex').onclick=exp;q('#im').onclick=imp;q('#ip').onclick=impClip;
   q('#kp').onclick=async()=>{b.keep=b.keep?0:1;save();if(b.keep){const ok=await keepOn();toast(ok?'后台保活已开启':'这个安装包里没有保活组件');if(!ok){b.keep=0;save()}}else await keepOff();draw()};
   q('#bt').onclick=async()=>{const p=BM();if(!p)return toast('这个安装包里没有保活组件');try{await (p.requestDisableBatteryOptimizations||p.disableBatteryOptimizations).call(p)}catch(e){toast('请到系统设置里把电池改成「不限制」')}}};
  draw()}
