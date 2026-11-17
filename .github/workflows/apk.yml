@@ -6,6 +6,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # 固定签名：以后每次打出的安装包都能直接覆盖更新，不会丢数据
+      - run: mkdir -p ~/.android && cp debug.keystore ~/.android/debug.keystore
       - uses: actions/setup-node@v4
         with:
           node-version: 22
