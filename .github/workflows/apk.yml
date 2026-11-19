@@ -16,8 +16,13 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: npm install --legacy-peer-deps
+      # 确保「通知」组件一定在安装包里（版本跟 Capacitor 主版本保持一致）
+      - run: |
+          MAJOR=$(node -p "require('@capacitor/core/package.json').version.split('.')[0]")
+          npm install @capacitor/local-notifications@$MAJOR --legacy-peer-deps
       - run: mkdir -p www && cp index.html www/index.html
       - run: npx cap add android
+      - run: ls -la
       - run: pip install pillow && python3 make_icons.py
       - run: python3 patch_manifest.py
       # 先带「后台保活」组件打包；如果这个组件和当前版本不合、打包失败，就自动去掉它再打一次
@@ -34,6 +39,7 @@ jobs:
           npm uninstall @anuradev/capacitor-background-mode --legacy-peer-deps || true
           npx cap sync android
           cd android
+          chmod +x gradlew
           ./gradlew clean assembleDebug
       - uses: actions/upload-artifact@v4
         with:
