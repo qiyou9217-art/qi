@@ -1,9 +1,17 @@
-# 生成安装包图标（用你仓库里的 icon.png）和通知小图标
+# 生成安装包图标（自动找仓库最外层的图片：icon.png 优先，否则用最大的那张图）和通知小图标
 import os
 from PIL import Image, ImageDraw
 res = 'android/app/src/main/res'
+src = None
 if os.path.exists('icon.png'):
-    im = Image.open('icon.png').convert('RGBA')
+    src = 'icon.png'
+else:
+    imgs = [f for f in os.listdir('.') if os.path.isfile(f) and f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))]
+    if imgs:
+        src = max(imgs, key=os.path.getsize)
+if src:
+    print('icon source:', src)
+    im = Image.open(src).convert('RGBA')
     s = min(im.size)
     im = im.crop(((im.width - s) // 2, (im.height - s) // 2, (im.width + s) // 2, (im.height + s) // 2))
     for d, px in [('mdpi', 48), ('hdpi', 72), ('xhdpi', 96), ('xxhdpi', 144), ('xxxhdpi', 192)]:
@@ -23,7 +31,7 @@ if os.path.exists('icon.png'):
             os.remove(p)
     print('icon done')
 else:
-    print('no icon.png, skip')
+    print('no image found, skip')
 # 通知栏小图标：白色对话气泡
 for d, px in [('mdpi', 24), ('hdpi', 36), ('xhdpi', 48), ('xxhdpi', 72), ('xxxhdpi', 96)]:
     os.makedirs('%s/drawable-%s' % (res, d), exist_ok=True)
