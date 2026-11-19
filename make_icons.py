@@ -33,6 +33,13 @@ if src:
         ImageDraw.Draw(m2).ellipse((0, 0, px - 1, px - 1), fill=255)
         rd = Image.new('RGBA', (px, px), (0, 0, 0, 0)); rd.paste(a, (0, 0), m2)
         rd.save('%s/mipmap-%s/ic_launcher_round.png' % (res, d))
+    # 通知里显示的大图标：就用你的图标
+    os.makedirs('%s/drawable' % res, exist_ok=True)
+    big = im.resize((192, 192), Image.LANCZOS)
+    mb = Image.new('L', (192, 192), 0)
+    ImageDraw.Draw(mb).rounded_rectangle((0, 0, 191, 191), radius=42, fill=255)
+    bg = Image.new('RGBA', (192, 192), (0, 0, 0, 0)); bg.paste(big, (0, 0), mb)
+    bg.save('%s/drawable/ic_large_notify.png' % res)
     for f in ['ic_launcher.xml', 'ic_launcher_round.xml']:
         p = '%s/mipmap-anydpi-v26/%s' % (res, f)
         if os.path.exists(p):
