@@ -8438,5 +8438,66 @@ renderHome();
 })();
 </script>
 
+<!-- ===== 补丁四十一：键盘顶栏防飞 + 会话角标即时刷新 + 微信默认好友列表 + 通知权限/渠道自动准备（粘贴在补丁四十之后、</body> 之前） ===== -->
+<style>
+/* 键盘遮在页面上方时，让整页贴着“可见区域”，顶栏不再被顶走 */
+body.vvk .app,body.vvk .sc{top:var(--vvt,0px)!important;bottom:auto!important;height:var(--vvh,100%)!important}
+</style>
+<script>
+(()=>{
+/* ===== 键盘弹起：顶栏不再飞走 ===== */
+const vv=window.visualViewport,root=document.documentElement;
+const reset=()=>{window.scrollTo(0,0);root.scrollTop=0;document.body.scrollTop=0};
+const fit=()=>{
+ if(!vv)return;
+ const on=document.body.classList.contains('kb')&&(innerHeight-vv.height>80||vv.offsetTop>1);
+ document.body.classList.toggle('vvk',on);
+ if(on){root.style.setProperty('--vvt',vv.offsetTop+'px');root.style.setProperty('--vvh',vv.height+'px')}
+ reset()};
+if(vv){vv.addEventListener('resize',fit);vv.addEventListener('scroll',fit)}
+window.addEventListener('scroll',reset,{passive:true});
+document.addEventListener('focusin',()=>{[0,80,200,400].forEach(t=>setTimeout(fit,t))});
+document.addEventListener('focusout',()=>setTimeout(fit,160));
+
+/* ===== 微信会话列表的未读角标：列表一出现就画，不再等轮询 ===== */
+const fOf=id=>(S.contacts||[]).find(c=>!c.fdel&&c.id===id);
+const unreadOf=c=>{const b=Math.max((S.wxRead&&S.wxRead[c.id])||0,S.wxBase||0);return (S.chats['wx'+c.id]||[]).filter(m=>m.r==='ai'&&!m.rc&&m.t>b).length};
+const paintRows=()=>{try{document.querySelectorAll('.app .fr.rd[data-id]').forEach(row=>{
+ const c=fOf(row.dataset.id),av=row.querySelector('.av');if(!c||!av)return;
+ const n=unreadOf(c);let b=av.querySelector('.wxb');
+ if(!n){if(b)b.remove();return}
+ const t=n>99?'99+':String(n);
+ if(!b){b=document.createElement('i');b.className='wxb';av.appendChild(b)}
+ if(b.textContent!==t)b.textContent=t})}catch(e){}};
+let raf=0;
+new MutationObserver(()=>{if(raf)return;raf=requestAnimationFrame(()=>{raf=0;paintRows()})}).observe(document.body,{childList:true,subtree:true});
+
+/* ===== 微信：打开时默认落在第二页「聊天」 ===== */
+const w0=window.wechat;
+window.wechat=function(r){
+ const v=w0.apply(this,arguments);
+ try{const b=r.querySelector('.tb b[data-i="1"]');if(b&&!b.classList.contains('on'))b.click()}catch(e){}
+ return v};
+
+/* ===== 安装版：启动后自动申请通知权限，并先建好通知渠道（锁屏可见内容） ===== */
+const LN=()=>window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.LocalNotifications;
+setTimeout(async()=>{const l=LN();if(!l)return;
+ try{const p=await l.checkPermissions();if(p.display!=='granted'&&p.display!=='denied')await l.requestPermissions()}catch(e){}
+ try{await l.createChannel({id:'celyra_msg',name:'角色消息',description:'好友发来的消息',importance:5,visibility:1,vibration:true,lights:true})}catch(e){}
+},2500);
+
+/* ===== 消息提醒页：顶部加一张「检测」卡（页面版本 + 组件 + 权限），用来判断安装版是不是最新、通知为什么不弹 ===== */
+const VER='2026-11-19-a';
+const diag=async bd=>{
+ if(bd.querySelector('#dg41'))return;
+ const d=document.createElement('div');d.className='bn-c';d.id='dg41';d.innerHTML='<h4>检测</h4><p>检测中…</p>';bd.prepend(d);
+ const C=window.Capacitor,BM=C&&C.Plugins&&C.Plugins.BackgroundMode,nat=!!(C&&C.isNativePlatform&&C.isNativePlatform()),l=LN();
+ let perm='读取不到';if(l)try{perm=(await l.checkPermissions()).display}catch(e){}
+ const row=(k,v,ok)=>`<p>${ok?'✅':'❌'} ${k}：${v}</p>`;
+ d.innerHTML=`<h4>检测（截图发给克劳德）</h4><p>页面版本：${VER}</p>`+row('安装版环境',nat?'是':'否（浏览器）',nat)+row('通知组件',l?'有':'没有',!!l)+row('通知权限',perm,perm==='granted')+row('后台保活组件',BM?'有':'没有',!!BM)};
+new MutationObserver(()=>{const bd=document.querySelector('.bn-bd');if(bd&&!bd.querySelector('#dg41'))diag(bd)}).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
+
 </body>
 </html>
