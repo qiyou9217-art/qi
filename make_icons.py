@@ -6,7 +6,15 @@ src = None
 if os.path.exists('icon.png'):
     src = 'icon.png'
 else:
-    imgs = [f for f in os.listdir('.') if os.path.isfile(f) and f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))]
+    imgs = []
+    for f in os.listdir('.'):
+        if not os.path.isfile(f):
+            continue
+        try:
+            Image.open(f).verify()   # 不看后缀名，能当图片打开的就算
+            imgs.append(f)
+        except Exception:
+            pass
     if imgs:
         src = max(imgs, key=os.path.getsize)
 if src:
