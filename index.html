@@ -6691,7 +6691,7 @@ const UP='<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
 const I_HOME='<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg>';
 const I_CHAT='<svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.5A8 8 0 1 1 21 12z"/></svg>';
 const icV=id=>`<i class="cl-ic" style="${S.icons[id]?`background-image:url('${S.icons[id]}')`:''}">${S.icons[id]?'':svg(P[id])}</i>`;
-const icR=a=>`<i class="cl-ic"><b>${esc([...a][0])}</b></i>`;
+const icR=a=>{const u=window.__real&&window.__real.ic&&window.__real.ic[a];return u?`<i class="cl-ic" style="background-image:url('${u}')"></i>`:`<i class="cl-ic"><b>${esc([...a][0])}</b></i>`};
 const batSvg=(p,chg,w=24)=>{
  const iw=Math.max(1.5,p/100*17.2),col=chg?'#34c759':p<=20?'#ff3b30':'currentColor';
  return `<svg viewBox="0 0 26 12" width="${w}" height="${w/2.1667}" style="stroke:none"><rect x=".6" y=".6" width="20.8" height="10.8" rx="3.2" fill="none" stroke-width="1.2" opacity=".45" style="stroke:currentColor"/><rect x="2.4" y="2.4" width="${iw}" height="7.2" rx="1.6" fill="${col}"/><rect x="22.4" y="4" width="2" height="4" rx="1" fill="currentColor" opacity=".45"/>${chg?'<path d="M11.8 2.6 8.6 6.6h2.3l-.7 2.8 3.3-4.2h-2.3z" fill="#fff"/>':''}</svg>`};
@@ -6881,22 +6881,19 @@ window.irApp=function(r){
    box.innerHTML=`<div class="cl-sec">Celyra 内的应用</div><div class="cl-cd cl-ls">${APPS.map(id=>`<div class="cl-r" data-id="${id}">${icV(id)}<span class="cl-nm">${esc(nOf(id))}${lockedV(id)?'<small>已被限制</small>':''}</span><i class="cl-ck${c.ok[id]?' on':''}">${CK}</i></div>`).join('')}</div>`;
    box.querySelectorAll('.cl-r').forEach(x=>x.onclick=()=>{const id=x.dataset.id;c.ok[id]=!c.ok[id];if(!c.ok[id])delete c.lock[id];save();drawList()});
    return}
-  if(!rl.paired){
-   box.innerHTML=`<div class="cl-cd cl-cn"><h3>连接真实手机</h3><p>在真实手机的配套 App 中输入下面的配对码，完成桥接后即可选择要管控的应用。</p><div class="cl-c0">${rl.code||'······'}</div><button class="cl-bb" id="clpair">${rl.code?'开始配对':'生成配对码'}</button><p class="cl-nt">网页无法直接操作手机系统应用，上锁指令需要由手机端 App 接收执行。</p></div>`;
-   r.querySelector('#clpair').onclick=pair;
+  if(!(window.__real&&window.__real.native)){
+   box.innerHTML=`<div class="cl-cd cl-cn"><h3>需要安装版 App</h3><p>真实手机上的应用，只有安装版 Celyra 才能管控。装好安装包后，在这里开启权限，就能让 TA 锁住你选的应用。</p></div>`;
    return}
-  box.innerHTML=`<div class="cl-cd cl-lv"><i></i><span>已连接真实手机</span><button id="cldis">断开</button></div><div class="cl-sec">真实手机内的应用</div><div class="cl-cd cl-ls">${rl.apps.map((a,i)=>`<div class="cl-r" data-i="${i}">${icR(a)}<span class="cl-nm">${esc(a)}${lockedR(a)?'<small>已被限制</small>':''}</span><i class="cl-ck${rl.ok[a]?' on':''}">${CK}</i></div>`).join('')}<div class="cl-r cl-ad" id="cladd"><i class="cl-ic cl-plus">+</i><span class="cl-nm">添加应用</span></div></div>`;
+  if(!rl.paired){
+   box.innerHTML=`<div class="cl-cd cl-cn"><h3>开启真实手机管控</h3><p>点下面的按钮，在系统「无障碍」里找到 Celyra 并打开。开启后，你勾选的应用，TA 才能远程锁住。</p><button class="cl-bb" id="clpair">去开启权限</button><p class="cl-nt">如果那里的开关是灰色、点不了：先点下面的按钮，在应用信息页右上角「⋯」里选「允许受限制的设置」，再回来开启。</p><button class="cl-bb" id="clinfo" style="background:#f2f2f7;color:#111!important">打开应用信息页</button></div>`;
+   r.querySelector('#clpair').onclick=pair;
+   r.querySelector('#clinfo').onclick=()=>window.__real.openAppInfo();
+   return}
+  box.innerHTML=`<div class="cl-cd cl-lv"><i></i><span>真实手机管控已开启</span><button id="cldis">刷新列表</button></div><div class="cl-sec">真实手机内的应用</div><div class="cl-cd cl-ls">${rl.apps.map((a,i)=>`<div class="cl-r" data-i="${i}">${icR(a)}<span class="cl-nm">${esc(a)}${lockedR(a)?'<small>已被限制</small>':''}</span><i class="cl-ck${rl.ok[a]?' on':''}">${CK}</i></div>`).join('')}</div>`;
   box.querySelectorAll('.cl-r[data-i]').forEach(x=>x.onclick=()=>{const a=rl.apps[+x.dataset.i];rl.ok[a]=!rl.ok[a];if(!rl.ok[a])delete rl.lock[a];save();drawList()});
-  r.querySelector('#cladd').onclick=()=>{
-   const n=(prompt('应用名称')||'').trim().slice(0,8);
-   if(!n)return;if(rl.apps.includes(n))return toast('已经有这个应用了');
-   rl.apps.push(n);save();drawList()};
-  r.querySelector('#cldis').onclick=()=>{if(!confirm('断开与真实手机的连接？'))return;rl.paired=false;rl.code='';rl.lock={};save();drawList()};
+  r.querySelector('#cldis').onclick=()=>{window.__real&&window.__real.load(1)};
  };
- const pair=()=>{
-  if(!rl.code){rl.code=String(Math.floor(100000+Math.random()*900000));save();drawList();return}
-  const b=r.querySelector('#clpair');b.textContent='正在配对…';b.disabled=true;
-  setTimeout(()=>{rl.paired=true;rl.code='';save();toast('已连接真实手机');if(r.isConnected)drawList()},1300)};
+  const pair=()=>window.__real.openSettings();
 
  /* ===== 底部【聊天】：智能遥控自己的聊天界面 ===== */
  const openChat=()=>{
@@ -6904,6 +6901,9 @@ window.irApp=function(r){
   if(!f){toast('先选择一位好友');choose(r,refresh);return}
   chatView(r,f,()=>build())};
 
+ const rup=()=>{if(!r.isConnected){window.removeEventListener('real-upd',rup);return}if(r.querySelector('#cllist'))drawList()};
+ window.addEventListener('real-upd',rup);
+ window.__real&&window.__real.load(1);
  build();
  if(goChat){goChat=0;if(fr())openChat()}
 };
@@ -6948,22 +6948,19 @@ window.irApp=function(r){
    box.innerHTML=`<div class="cl-sec">Celyra 内的应用</div><div class="cl-cd cl-ls">${APPS.map(id=>`<div class="cl-r" data-id="${id}">${icV(id)}<span class="cl-nm">${esc(nOf(id))}${lockedV(id)?'<small>已被限制</small>':''}</span><i class="cl-ck${c.ok[id]?' on':''}">${CK}</i></div>`).join('')}</div>`;
    box.querySelectorAll('.cl-r').forEach(x=>x.onclick=()=>{const id=x.dataset.id;c.ok[id]=!c.ok[id];if(!c.ok[id])delete c.lock[id];save();drawList()});
    return}
-  if(!rl.paired){
-   box.innerHTML=`<div class="cl-cd cl-cn"><h3>连接真实手机</h3><p>在真实手机的配套 App 中输入下面的配对码，完成桥接后即可选择要管控的应用。</p><div class="cl-c0">${rl.code||'······'}</div><button class="cl-bb" id="clpair">${rl.code?'开始配对':'生成配对码'}</button><p class="cl-nt">网页无法直接操作手机系统应用，上锁指令需要由手机端 App 接收执行。</p></div>`;
-   r.querySelector('#clpair').onclick=pair;
+  if(!(window.__real&&window.__real.native)){
+   box.innerHTML=`<div class="cl-cd cl-cn"><h3>需要安装版 App</h3><p>真实手机上的应用，只有安装版 Celyra 才能管控。装好安装包后，在这里开启权限，就能让 TA 锁住你选的应用。</p></div>`;
    return}
-  box.innerHTML=`<div class="cl-cd cl-lv"><i></i><span>已连接真实手机</span><button id="cldis">断开</button></div><div class="cl-sec">真实手机内的应用</div><div class="cl-cd cl-ls">${rl.apps.map((a,i)=>`<div class="cl-r" data-i="${i}">${icR(a)}<span class="cl-nm">${esc(a)}${lockedR(a)?'<small>已被限制</small>':''}</span><i class="cl-ck${rl.ok[a]?' on':''}">${CK}</i></div>`).join('')}<div class="cl-r cl-ad" id="cladd"><i class="cl-ic cl-plus">+</i><span class="cl-nm">添加应用</span></div></div>`;
+  if(!rl.paired){
+   box.innerHTML=`<div class="cl-cd cl-cn"><h3>开启真实手机管控</h3><p>点下面的按钮，在系统「无障碍」里找到 Celyra 并打开。开启后，你勾选的应用，TA 才能远程锁住。</p><button class="cl-bb" id="clpair">去开启权限</button><p class="cl-nt">如果那里的开关是灰色、点不了：先点下面的按钮，在应用信息页右上角「⋯」里选「允许受限制的设置」，再回来开启。</p><button class="cl-bb" id="clinfo" style="background:#f2f2f7;color:#111!important">打开应用信息页</button></div>`;
+   r.querySelector('#clpair').onclick=pair;
+   r.querySelector('#clinfo').onclick=()=>window.__real.openAppInfo();
+   return}
+  box.innerHTML=`<div class="cl-cd cl-lv"><i></i><span>真实手机管控已开启</span><button id="cldis">刷新列表</button></div><div class="cl-sec">真实手机内的应用</div><div class="cl-cd cl-ls">${rl.apps.map((a,i)=>`<div class="cl-r" data-i="${i}">${icR(a)}<span class="cl-nm">${esc(a)}${lockedR(a)?'<small>已被限制</small>':''}</span><i class="cl-ck${rl.ok[a]?' on':''}">${CK}</i></div>`).join('')}</div>`;
   box.querySelectorAll('.cl-r[data-i]').forEach(x=>x.onclick=()=>{const a=rl.apps[+x.dataset.i];rl.ok[a]=!rl.ok[a];if(!rl.ok[a])delete rl.lock[a];save();drawList()});
-  r.querySelector('#cladd').onclick=()=>{
-   const n=(prompt('应用名称')||'').trim().slice(0,8);
-   if(!n)return;if(rl.apps.includes(n))return toast('已经有这个应用了');
-   rl.apps.push(n);save();drawList()};
-  r.querySelector('#cldis').onclick=()=>{if(!confirm('断开与真实手机的连接？'))return;rl.paired=false;rl.code='';rl.lock={};save();drawList()};
+  r.querySelector('#cldis').onclick=()=>{window.__real&&window.__real.load(1)};
  };
- const pair=()=>{
-  if(!rl.code){rl.code=String(Math.floor(100000+Math.random()*900000));save();drawList();return}
-  const b=r.querySelector('#clpair');b.textContent='正在配对…';b.disabled=true;
-  setTimeout(()=>{rl.paired=true;rl.code='';save();toast('已连接真实手机');if(r.isConnected)drawList()},1300)};
+  const pair=()=>window.__real.openSettings();
 
  /* ===== 底部【聊天】：智能遥控自己的聊天界面 ===== */
  const openChat=()=>{
@@ -6971,6 +6968,9 @@ window.irApp=function(r){
   if(!f){toast('先选择一位好友');choose(r,refresh);return}
   chatView(r,f,()=>build())};
 
+ const rup=()=>{if(!r.isConnected){window.removeEventListener('real-upd',rup);return}if(r.querySelector('#cllist'))drawList()};
+ window.addEventListener('real-upd',rup);
+ window.__real&&window.__real.load(1);
  build();
  if(goChat){goChat=0;if(fr())openChat()}
 };
@@ -8501,6 +8501,288 @@ const diag=async bd=>{
  const row=(k,v,ok)=>`<p>${ok?'✅':'❌'} ${k}：${v}</p>`;
  d.innerHTML=`<h4>检测（截图发给克劳德）</h4><p>页面版本：${VER}</p>`+row('安装版环境',nat?'是':'否（浏览器）',nat)+row('通知组件',l?'有':'没有',!!l)+row('通知权限',perm,perm==='granted')+row('后台保活组件',BM?'有':'没有',!!BM)};
 new MutationObserver(()=>{const bd=document.querySelector('.bn-bd');if(bd&&!bd.querySelector('#dg41'))diag(bd)}).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
+
+<!-- ===== 补丁四十二：剧本 App（白底；选好友抽三个剧本 / 我攻略 TA 或 TA 攻略我 / 旁白 + 好感度 + 剧情进度 / 收藏）粘贴在补丁四十一之后、</body> 之前 ===== -->
+<style>
+.sj{flex:1;min-height:0;display:flex;flex-direction:column;background:#fff;color:#111;font-family:-apple-system,"PingFang SC",sans-serif;position:relative}
+:where(.sj button){background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer}
+.sj input{font:inherit;color:#111}
+.sj-top{flex:none;display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 10px) 16px 8px}
+.sj-top b{flex:1;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sj-bk,.sj-mn{width:36px;height:36px;border-radius:50%;background:#f4f4f6;display:grid;place-items:center;flex:none;font-size:18px}
+.sj-bd{flex:1;min-height:0;overflow-y:auto;padding:4px 18px 28px}
+.sj-h1{font-size:32px;font-weight:800;margin:4px 0 2px}
+.sj-sub{color:#8e8e93;font-size:13.5px;margin-bottom:6px}
+.sj-lb{font-size:13px;color:#8e8e93;margin:20px 0 10px;font-weight:600;letter-spacing:1px}
+.sj-fr{display:flex;gap:14px;overflow-x:auto;padding:4px 4px 8px;scrollbar-width:none}.sj-fr::-webkit-scrollbar{display:none}
+.sj-f{flex:none;width:62px;text-align:center;font-size:12px;color:#777}
+.sj-av{display:block;width:52px;height:52px;border-radius:50%;background-size:cover;background-position:center;background-color:#eee;margin:0 auto 6px}
+.sj-f.on .sj-av{outline:2.5px solid #111;outline-offset:2px}.sj-f.on{color:#111;font-weight:700}
+.sj-f span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sj-go{display:block;width:100%;padding:14px;border-radius:16px;background:#111;color:#fff!important;font-weight:700;font-size:16px;text-align:center;margin-top:8px}
+.sj-go:disabled{opacity:.4}.sj-go.g{background:#fff;color:#111!important;border:1.5px solid #e3e3e8}
+.sj-cd{border:1px solid #ececf0;border-radius:22px;padding:16px;margin-top:14px;background:#fff;box-shadow:0 6px 20px rgba(0,0,0,.04)}
+.sj-cd .sj-r1{display:flex;align-items:center;justify-content:space-between}
+.sj-tg{display:inline-block;padding:3px 10px;border-radius:10px;background:#f4f4f6;color:#666;font-size:12px}
+.sj-st1{font-size:22px;color:#c9c9cf;line-height:1}.sj-st1.on{color:#ffb800}
+.sj-cd h3{margin:10px 0 6px;font-size:19px}
+.sj-cd p{margin:0;font-size:14px;line-height:1.75;color:#555}
+.sj-rl{margin-top:10px;padding:10px 12px;border-radius:14px;background:#f8f8fa;font-size:12.5px;line-height:1.7;color:#666}
+.sj-rl b{color:#111}
+.sj-vd{margin-top:10px;font-size:13px;color:#888;font-style:italic}
+.sj-cd .sj-go2{display:block;width:100%;margin-top:12px;padding:11px;border-radius:14px;border:1.5px solid #111;font-weight:700;text-align:center}
+.sj-tb{flex:none;display:flex;border-top:1px solid #f0f0f3;padding:6px 0 calc(env(safe-area-inset-bottom) + 6px);background:#fff}
+.sj-tb button{flex:1;padding:8px 0;font-size:13.5px;color:#a0a0a8;position:relative}
+.sj-tb button.on{color:#111;font-weight:700}.sj-tb button.on::after{content:"";display:block;width:5px;height:5px;border-radius:50%;background:#111;margin:4px auto 0}
+.sj-em{text-align:center;color:#a0a0a8;font-size:14px;padding:50px 0}
+.sj-sk{height:130px;border-radius:22px;margin-top:14px;background:linear-gradient(90deg,#f4f4f6,#fafafb,#f4f4f6);background-size:200% 100%;animation:sjsk 1.2s linear infinite}@keyframes sjsk{to{background-position:-200% 0}}
+.sj-sheet{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:flex-end}
+.sj-bg{position:absolute;inset:0;background:rgba(0,0,0,.35)}
+.sj-pn{position:relative;background:#fff;border-radius:26px 26px 0 0;padding:20px 18px calc(env(safe-area-inset-bottom) + 18px);max-height:88%;overflow-y:auto}
+.sj-pn h3{margin:0 0 4px;font-size:19px}
+.sj-sg{display:flex;gap:8px}.sj-sg button{flex:1;padding:11px 0;border-radius:14px;background:#f4f4f6;font-size:14px;text-align:center}.sj-sg button.on{background:#111;color:#fff;font-weight:700}
+.sj-ip{display:block;margin-top:12px;font-size:12.5px;color:#8e8e93}.sj-ip input{display:block;width:100%;box-sizing:border-box;margin-top:6px;padding:12px 14px;border-radius:14px;border:1.5px solid #ececf0;background:#fff;font-size:15px;outline:0}.sj-ip input:focus{border-color:#111}
+.sj-st{flex:none;margin:0 14px 4px;padding:10px 14px;border-radius:18px;background:#f8f8fa}
+.sj-sr{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#666;position:relative;min-height:30px}.sj-sr>span{width:46px;flex:none}
+.sj-bar{flex:1;height:7px;border-radius:4px;background:#e8e8ee;overflow:hidden}.sj-bar i{display:block;height:100%;border-radius:4px;background:#111;transition:width .5s}.sj-bar.h i{background:linear-gradient(90deg,#ff8fa3,#ff4d6d)}
+.sj-sr em{font-style:normal;width:78px;flex:none;text-align:right;font-size:12px;color:#111}
+.sj-ad{width:28px;height:28px;border-radius:50%;background:#fff!important;border:1px solid #e3e3e8!important;font-size:16px;line-height:1;display:grid;place-items:center;flex:none}
+.sj-fl{position:absolute;right:70px;top:-6px;font-weight:800;font-size:15px;animation:sjfl 1.6s forwards;pointer-events:none}.sj-fl.up{color:#ff4d6d}.sj-fl.dn{color:#3a7bff}
+@keyframes sjfl{0%{opacity:0;transform:translateY(8px)}15%{opacity:1}100%{opacity:0;transform:translateY(-16px)}}
+.sj-bt2{font-size:11.5px;color:#9a9aa2;padding:2px 0 0 54px}
+.sj-ms{flex:1;min-height:0;overflow-y:auto;padding:8px 16px 18px}
+.sj-nar{margin:12px 6px;padding:2px 0 2px 12px;border-left:3px solid #e3e3e8;color:#777;font-size:13.5px;line-height:1.8}
+.sj-row{display:flex;gap:8px;margin:10px 0;align-items:flex-end}.sj-row.sjme{flex-direction:row-reverse}
+.sj-row .sj-av{width:34px;height:34px;margin:0;flex:none}
+.sj-bb{max-width:72%;padding:10px 14px;border-radius:18px;font-size:15px;line-height:1.6;white-space:pre-wrap;word-break:break-word;background:#f2f2f5}
+.sj-row.sjme .sj-bb{background:#111;color:#fff}
+.sj-nm{font-size:11.5px;color:#9a9aa2;margin:0 0 3px 2px}
+.sj-sy{text-align:center;margin:8px 0}.sj-sy span{display:inline-block;padding:3px 12px;border-radius:12px;font-size:12px;background:#f4f4f6;color:#888}.sj-sy .up{color:#ff4d6d;background:#fff0f3}.sj-sy .dn{color:#3a7bff;background:#eef3ff}
+.sj-hint{margin:10px 6px;padding:8px 12px;border-radius:12px;background:#fff8e1;color:#8a6d00;font-size:12.5px;line-height:1.6}
+.sj-ty{display:flex;gap:4px;padding:12px 14px}.sj-ty i{width:7px;height:7px;border-radius:50%;background:#bbb;animation:sjty 1s infinite}.sj-ty i:nth-child(2){animation-delay:.15s}.sj-ty i:nth-child(3){animation-delay:.3s}@keyframes sjty{50%{opacity:.25}}
+.sj-in{flex:none;display:flex;gap:8px;align-items:center;padding:8px 14px calc(env(safe-area-inset-bottom) + 10px);border-top:1px solid #f0f0f3;background:#fff}
+.sj-in input{flex:1;min-width:0;padding:11px 16px;border-radius:22px;border:1.5px solid #ececf0;font-size:15px;outline:0;background:#fff}.sj-in input:focus{border-color:#111}
+.sj-in button{padding:11px 18px;border-radius:22px;background:#111;color:#fff;font-weight:700}.sj-in button:disabled{opacity:.4}
+.sj-end{margin:18px 4px 8px;padding:20px 16px;border-radius:24px;border:1px solid #ececf0;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.05)}
+.sj-end .sj-tt{display:inline-block;padding:3px 14px;border-radius:12px;font-size:12.5px;font-weight:700;background:#f4f4f6}.sj-end .sj-tt.s{background:#fff0f3;color:#ff4d6d}.sj-end .sj-tt.f{background:#eef3ff;color:#3a7bff}
+.sj-end h3{margin:12px 0 6px;font-size:20px}.sj-end p{margin:0;font-size:14px;line-height:1.8;color:#555}
+.sj-ln{margin:14px 0 6px;font-size:15.5px;font-weight:700;line-height:1.7}.sj-ln::before{content:"“"}.sj-ln::after{content:"”"}
+.sj-sm{font-size:12px;color:#9a9aa2;margin-bottom:6px}
+.sj-menu{position:absolute;right:16px;top:calc(env(safe-area-inset-top) + 52px);z-index:25;background:#fff;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.15);overflow:hidden;min-width:140px}
+.sj-menu button{display:block;width:100%;padding:13px 18px;text-align:left;font-size:14.5px}.sj-menu button+button{border-top:1px solid #f0f0f3}
+</style>
+<script>
+(()=>{
+const nm=c=>window.__cel&&window.__cel.nm?window.__cel.nm(c):(c.remark||c.name);
+N.scr='剧本';P.scr='M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5zM4 19.5A2.5 2.5 0 0 1 6.5 17H20M9 7h7M9 11h5';
+const D=()=>{const d=S.scr=S.scr||{};d.batch=d.batch||[];d.fav=d.fav||[];d.runs=d.runs||[];return d};
+const friends=()=>(S.contacts||[]).filter(c=>!c.fdel);
+const fOf=id=>(S.contacts||[]).find(c=>c.id===id);
+const avOf=c=>(c&&c.avatar)||DEF;
+const avI=(a,cls)=>`<i class="sj-av ${cls||''}" style="background-image:url('${a}')"></i>`;
+const fill=(t,m,a)=>String(t==null?'':t).replace(/\{me\}/g,m).replace(/\{ta\}/g,a);
+const clamp=n=>Math.max(0,Math.min(100,Math.round(n)));
+const pick=(a,n)=>a.slice().sort(()=>Math.random()-.5).slice(0,n);
+const GEN=['校园','都市职场','古风宫廷','民国谍影','末世求生','奇幻异世界','悬疑推理','娱乐圈','豪门契约','赛博朋克','武侠江湖','星际远航','电竞战队','小镇咖啡馆','乐队','医院','考古探险','综艺录制'];
+const KEY=['暴雨夜','一封迟到的信','拍卖会','雪山木屋','旧相机','假身份','毕业典礼','深夜便利店','跨年夜','列车晚点','盲盒快递','失灵的电梯','海边灯塔','走错的包厢','丢失的钥匙'];
+const stage=a=>a<=20?'陌生':a<=40?'相识':a<=60?'熟络':a<=80?'心动':'热恋';
+
+/* ===== 调用 API（自己组提示词，不用好友的人设） ===== */
+const llm=async(sys,msgs,temp)=>{const a=S.api;if(!a||!a.url||!a.key)throw'请先在「设置」中配置 API';
+ const res=await fetch(a.url.replace(/\/+$/,'')+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+a.key},body:JSON.stringify({model:a.model||'gpt-4o-mini',messages:[{role:'system',content:sys},...msgs]})});
+ const j=await res.json();if(!res.ok)throw(j.error&&j.error.message)||res.status;return String((j.choices&&j.choices[0]&&j.choices[0].message.content)||'')};
+const pj=t=>{t=String(t).replace(/```json|```/g,'').trim();
+ const tp=s=>{for(const f of [x=>x,x=>x.replace(/\r?\n/g,' '),x=>x.replace(/\r?\n/g,' ').replace(/,\s*([}\]])/g,'$1')]){try{return JSON.parse(f(s))}catch(e){}}return null};
+ let o=tp(t);if(o)return o;
+ const a=t.indexOf('['),b=t.lastIndexOf(']'),c=t.indexOf('{'),d=t.lastIndexOf('}'),cs=[];if(a>-1&&b>a)cs.push([a,t.slice(a,b+1)]);if(c>-1&&d>c)cs.push([c,t.slice(c,d+1)]);cs.sort((x,y)=>x[0]-y[0]);
+ for(const [,s] of cs){o=tp(s);if(o)return o}return null};
+
+/* ===== 随机抽剧本（每个剧本单独请求、并行生成，输出短、不容易被截断） ===== */
+const one=async(c,g,k)=>{
+ const sys=`你是互动剧本策划。请生成 1 个恋爱攻略剧本，主角是一对「陌生人」。
+要求：
+1. 题材：${g}；随机元素：${k}。
+2. 两位主角的性格由剧本自己设定，与任何现实人物无关；性格要鲜明，有喜好、雷点、弱点，方便玩家攻略。
+3. 简介里用 {me} 代指玩家主角，{ta} 代指对方主角（对方的参考昵称：${nm(c)}，仅供取名灵感）。
+4. 只输出一个 JSON 对象，不要任何其他文字，格式：
+{"title":"剧本名","genre":"题材","intro":"80~130字剧本简介，写清背景和两人相遇的契机","meName":"玩家主角在剧本里的名字","taName":"对方主角在剧本里的名字","meRole":"玩家主角的身份和性格，30字内","taRole":"对方主角的身份、性格、喜好、雷点，60字内","beats":["第一幕标题","第二幕标题","第三幕标题","第四幕标题","第五幕标题"]}`;
+ let err='';
+ for(let i=0;i<2;i++){try{const o=pj(await llm(sys,[{role:'user',content:'开始生成'}],1)),x=Array.isArray(o)?o[0]:o,t=x&&(x.title||x.name),it=x&&(x.intro||x.summary||x.desc);
+  if(t&&it)return{id:uid(),cid:c.id,title:String(t),genre:String(x.genre||g),intro:String(it),meName:String(x.meName||'我'),taName:String(x.taName||'TA'),meRole:String(x.meRole||''),taRole:String(x.taRole||''),beats:(Array.isArray(x.beats)&&x.beats.length?x.beats:['相遇','靠近','波折','抉择','结局']).slice(0,6).map(String)};
+  err='返回的内容不是剧本格式'}catch(e){err=String(e&&e.message||e)}}
+ throw err};
+/* ===== 剧本内的提示词 ===== */
+const sysOf=r=>{const s=r.script,me=r.meName,ta=r.taName;
+ return `你是互动恋爱剧本的叙述者，同时扮演剧本中的对方角色「${ta}」。玩家扮演「${me}」。
+剧本：《${s.title}》（${s.genre}）
+简介：${fill(s.intro,me,ta)}
+玩家角色「${me}」：${fill(s.meRole,me,ta)}
+对方角色「${ta}」（由你扮演，必须严格按这里的性格言行，不要使用任何别的人设）：${fill(s.taRole,me,ta)}
+初始关系：陌生人。${r.mode==='me'?`玩家正在攻略${ta}。好感度指「${ta}对${me}的好感度」。`:`${ta}正在攻略玩家。好感度指「${me}对${ta}的好感度」，由${ta}的做法是否打动人、玩家回应的态度来决定变化。`}好感度范围 0~100，每轮会在【状态】里告诉你当前值。
+剧本主线（仅供参考，不是铁轨）：${s.beats.map((b,i)=>`第${i+1}幕 ${b}`).join('；')}。
+规则：
+1. 故事整体走向以玩家与对方的对话为准。如果玩家的选择明显偏离剧本主线，在 hint 里给一句轻提示（如“主线里这时本该……”），但剧情仍然顺着玩家的选择继续，并自然地把主线融入新的走向；没有偏离时 hint 为空字符串。
+2. 每轮输出 narration（1~2 句旁白，描写场景、动作、心理，不要替玩家说话或做决定）和 reply（${ta}的台词，口语化，可带少量括号动作；沉默时可为空字符串）。
+3. ${r.mode==='me'?`delta 是本轮${ta}对${me}的好感度变化，整数，范围 -15~15，幅度不固定：普通互动 ±1~5，说到点子上或踩雷时才有大幅变化；必须符合${ta}的性格喜好。reason 用 12 字以内说明原因。`:`好感度完全由玩家手动控制，你不要改变它：delta 固定为 0，reason 为空字符串。请根据【状态】里的好感度调整${ta}的态度和做法（好感低时更努力、更小心，好感高时更亲近、更大胆）。`}
+4. progress 是剧情进度 0~100，只增不减，每轮增加约 4~10；beat 是当前处于第几幕（从 0 开始）。剧情自然收尾时 progress 到 100，end 才为 true。
+5. 玩家可能手动调整好感度（会写在【系统】里），请让对方的态度随之变化。
+6. ${r.mode==='ta'?`${ta}要主动出击：每轮 reply 都是${ta}为了攻略玩家做出的具体话语或举动，并给玩家留出回应的空间。`:`${ta}不会轻易敞开心扉，要符合陌生人逐步熟悉的节奏。`}
+7. 只输出一个 JSON 对象，不要任何其他文字：{"narration":"","reply":"","delta":0,"reason":"","progress":0,"beat":0,"hint":"","end":false}`};
+
+const newRun=(s,mode,me,ta)=>({id:uid(),script:JSON.parse(JSON.stringify(s)),cid:s.cid,mode,meName:me,taName:ta,aff:15,prog:0,beat:0,turns:0,msgs:[],h:[],note:'',ended:0,end:null,t:Date.now()});
+const doTurn=async(r,text,sysNote)=>{
+ const bt=r.script.beats[r.beat]||'';
+ const content=(sysNote?`【系统】${sysNote}\n`:'')+text+`\n【状态】好感度 ${r.aff}/100，剧情进度 ${r.prog}%，第 ${r.beat+1} 幕《${bt}》`;
+ const raw=await llm(sysOf(r),[...r.h.slice(-20),{role:'user',content}],0.9);
+ let o=pj(raw);if(!o||typeof o!=='object'||Array.isArray(o))o={narration:'',reply:String(raw).slice(0,300),delta:0,progress:r.prog,beat:r.beat,hint:'',end:false};
+ r.h.push({role:'user',content},{role:'assistant',content:JSON.stringify(o)});r.h=r.h.slice(-40);
+ const dl=r.mode==='me'&&text.indexOf('系统：开始剧本')!==1?Math.max(-15,Math.min(15,Math.round(+o.delta||0))):0;
+ if(o.narration)r.msgs.push({k:'nar',c:String(o.narration)});
+ if(o.reply)r.msgs.push({k:'ta',c:String(o.reply)});
+ if(o.hint)r.msgs.push({k:'hint',c:String(o.hint)});
+ r.aff=clamp(r.aff+dl);
+ let pg=Math.round(+o.progress);if(!(pg>r.prog))pg=r.prog+4;r.prog=Math.min(100,pg);
+ r.beat=Math.max(r.beat,Math.min(r.script.beats.length-1,Math.round(+o.beat||0)));
+ if(r.mode==='me'&&(dl||text.indexOf('系统：开始')!==0))r.msgs.push({k:'sy',d:dl,c:`好感度 ${dl>0?'+':''}${dl}${o.reason?' · '+String(o.reason).slice(0,16):''}`});
+ r.t=Date.now();
+ return {dl,end:!!o.end||r.aff>=100||r.aff<=0||r.prog>=100}};
+
+const typeOf=r=>r.aff>=70?'s':r.aff<=30?'f':'n';
+const finishRun=async r=>{const ty=typeOf(r),lab={s:'攻略成功',f:'攻略失败',n:'平淡收场'}[ty],s=r.script;
+ let o=null;try{o=pj(await llm(`你是互动剧本《${s.title}》的叙述者。剧本已经结束，结局：${lab}（好感度 ${r.aff}/100，共 ${r.turns} 轮，${r.mode==='me'?`${r.meName}攻略${r.taName}`:`${r.taName}攻略${r.meName}`}）。请只输出 JSON：{"title":"结局标题，8字内","epilogue":"2~3句结局旁白，呼应前面的剧情","line":"系统给这个剧本的一句话评语，30字内，有余味，可略带幽默"}`,[...r.h.slice(-10),{role:'user',content:'剧本结束，请给出结局。'}],0.9))}catch(e){}
+ o=o&&typeof o==='object'?o:{};
+ r.ended=1;r.end={ty,lab,title:String(o.title||lab),epilogue:String(o.epilogue||'故事在这里落下帷幕。'),line:String(o.line||'每一次相遇，都是一个新的开始。')};
+ const d=D();[d.batch.find(x=>x.id===s.id),d.fav.find(x=>x.id===s.id)].forEach(x=>{if(x)x.verdict=r.end.line});r.t=Date.now()};
+
+/* ===== 页面 ===== */
+function scrApp(r){
+ const d=D();const st={err:'',tab:'gen',sel:d.sel&&fOf(d.sel)?d.sel:(friends()[0]||{}).id,loading:0,sheet:null,run:null,busy:0,menu:0};
+ const q=s=>r.querySelector(s);
+ const favHas=id=>d.fav.some(x=>x.id===id);
+ const cardH=(s,o)=>{const f=fOf(s.cid),me=s.meName,ta=s.taName;
+  return `<div class="sj-cd"><div class="sj-r1"><span class="sj-tg">${esc(s.genre||'剧本')}</span><button class="sj-st1${favHas(s.id)?' on':''}" data-a="fav" data-sid="${s.id}">${favHas(s.id)?'★':'☆'}</button></div>
+  <h3>《${esc(s.title)}》</h3><p>${esc(fill(s.intro,me,ta))}</p>
+  <div class="sj-rl"><b>${esc(me)}</b>　${esc(fill(s.meRole,me,ta))}<br><b>${esc(ta)}</b>　${esc(fill(s.taRole,me,ta))}</div>
+  ${s.verdict?`<div class="sj-vd">“${esc(s.verdict)}”</div>`:''}
+  <button class="sj-go2" data-a="pick" data-sid="${s.id}">${o||'开始这个剧本'}</button></div>`};
+ const findS=id=>d.batch.find(x=>x.id===id)||d.fav.find(x=>x.id===id);
+ const bar=(t,n)=>`<button class="${st.tab===t?'on':''}" data-a="tab" data-v="${t}">${n}</button>`;
+
+ /* —— 首页 —— */
+ const home=()=>{st.run=null;const fr=friends(),ongoing=d.runs.filter(x=>!x.ended).sort((a,b)=>b.t-a.t),done=d.runs.filter(x=>x.ended).sort((a,b)=>b.t-a.t);
+  let body='';
+  if(st.tab==='gen'){body=`<div class="sj-h1">剧本</div><div class="sj-sub">选一位好友，一起演一出故事</div>
+   <div class="sj-lb">选择好友</div>${fr.length?`<div class="sj-fr">${fr.map(c=>`<button class="sj-f${c.id===st.sel?' on':''}" data-a="sel" data-id="${c.id}">${avI(avOf(c))}<span>${esc(nm(c))}</span></button>`).join('')}</div>`:'<div class="sj-em" style="padding:20px 0">还没有好友，先去微信添加一位</div>'}
+   <button class="sj-go" data-a="gen" ${fr.length&&!st.loading?'':'disabled'}>${st.loading?'正在构思剧本…':'随机抽剧本'}</button>
+   ${d.batch.map(s=>cardH(s)).join('')}${st.loading?'<div class="sj-sk"></div>'.repeat(Math.max(0,3-d.batch.length)):''}`}
+  else if(st.tab==='run'){body=`<div class="sj-h1">进行中</div><div class="sj-sub">继续没演完的故事</div>${ongoing.length?ongoing.map(x=>runH(x)).join(''):'<div class="sj-em">还没有进行中的剧本</div>'}
+   ${done.length?`<div class="sj-lb">已完成</div>${done.map(x=>runH(x)).join('')}`:''}`}
+  else body=`<div class="sj-h1">收藏</div><div class="sj-sub">喜欢的剧本都在这里</div>${d.fav.length?d.fav.map(s=>cardH(s)).join(''):'<div class="sj-em">点剧本右上角的 ☆ 就能收藏</div>'}`;
+  r.innerHTML=`<div class="sj"><div class="sj-top"><button class="sj-bk" data-a="close"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button></div><div class="sj-bd">${body}</div><div class="sj-tb">${bar('gen','剧本')}${bar('run','进行中')}${bar('fav','收藏')}</div>${st.sheet?sheetH():''}</div>`};
+ const runH=x=>{const f=fOf(x.cid);return `<div class="sj-cd"><div class="sj-r1"><span class="sj-tg">${x.mode==='me'?'我攻略 TA':'TA 攻略我'}</span><button data-a="delr" data-id="${x.id}" style="color:#bbb;font-size:13px">删除</button></div>
+  <h3>《${esc(x.script.title)}》</h3><p>${esc(x.meName)} × ${esc(x.taName)} · 好感 ${x.aff} · 进度 ${x.prog}%${x.ended?' · '+esc(x.end.lab):''}</p>
+  ${x.ended?`<div class="sj-vd">“${esc(x.end.line)}”</div>`:''}<button class="sj-go2" data-a="cont" data-id="${x.id}">${x.ended?'回顾':'继续剧本'}</button></div>`};
+ const sheetH=()=>{const h=st.sheet,s=findS(h.sid);return `<div class="sj-sheet"><div class="sj-bg" data-a="sx"></div><div class="sj-pn"><h3>《${esc(s.title)}》</h3>
+  <div class="sj-lb" style="margin-top:14px">攻略方向</div><div class="sj-sg"><button data-a="md" data-v="me" class="${h.mode==='me'?'on':''}">我攻略 TA</button><button data-a="md" data-v="ta" class="${h.mode==='ta'?'on':''}">TA 攻略我</button></div>
+  <div class="sj-lb" style="margin-top:16px">名字</div><div class="sj-sg"><button data-a="nmm" data-v="cur" class="${h.nm==='cur'?'on':''}">现有名字</button><button data-a="nmm" data-v="scr" class="${h.nm==='scr'?'on':''}">剧本里的名字</button></div>
+  <label class="sj-ip">我的名字<input id="sjm" value="${esc(h.me)}" maxlength="12"></label><label class="sj-ip">TA 的名字（可以自己起）<input id="sjt" value="${esc(h.ta)}" maxlength="12"></label>
+  <button class="sj-go" data-a="go" style="margin-top:18px">开始剧本</button></div></div>`};
+ const defNames=(s,m)=>m==='cur'?{me:S.me.name||'我',ta:nm(fOf(s.cid)||{name:s.taName})}:{me:s.meName,ta:s.taName};
+ const keepNames=()=>{if(st.sheet){const a=q('#sjm'),b=q('#sjt');if(a)st.sheet.me=a.value;if(b)st.sheet.ta=b.value}};
+
+ /* —— 剧本进行页 —— */
+ const play=()=>{const x=st.run,f=fOf(x.cid);
+  r.innerHTML=`<div class="sj"><div class="sj-top"><button class="sj-bk" data-a="back"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><b>《${esc(x.script.title)}》</b><button class="sj-mn" data-a="menu">⋯</button></div>
+   <div class="sj-st" id="sjs"></div><div class="sj-ms" id="sjms"></div>
+   <div class="sj-in"><input id="sji" placeholder="${x.mode==='me'?'你想对TA说什么、做什么…':'你会怎么回应…'}" enterkeyhint="send"><button id="sjsd">发送</button></div>${st.menu?`<div class="sj-menu"><button data-a="favr">${favHas(x.script.id)?'取消收藏剧本':'收藏这个剧本'}</button><button data-a="endr">结束剧本</button></div>`:''}</div>`;
+  paint();const inp=q('#sji');inp.onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();send()}};q('#sjsd').onclick=send};
+ const paint=(fl)=>{const x=st.run;if(!x||!q('#sjs'))return;const bt=x.script.beats[x.beat]||'';
+  q('#sjs').innerHTML=`<div class="sj-sr"><span>剧情</span><div class="sj-bar"><i style="width:${x.prog}%"></i></div><em>${x.prog}% · 第${x.beat+1}幕</em></div>
+   <div class="sj-sr"><span style="color:#ff4d6d">♥ 好感</span><div class="sj-bar h"><i style="width:${x.aff}%"></i></div><em>${x.aff} · ${stage(x.aff)}</em>${x.mode==='ta'?'<button class="sj-ad" data-a="dn">−</button><button class="sj-ad" data-a="up">+</button>':''}${fl?`<b class="sj-fl ${fl>0?'up':'dn'}">${fl>0?'+':''}${fl}</b>`:''}</div><div class="sj-bt2">${esc(bt)}</div>`;
+  const f=fOf(x.cid),ta=avOf(f),me=S.me.avatar||DEF;
+  q('#sjms').innerHTML=x.msgs.map(m=>m.k==='nar'?`<div class="sj-nar">${esc(m.c)}</div>`:m.k==='hint'?`<div class="sj-hint">💡 ${esc(m.c)}</div>`:m.k==='sy'?`<div class="sj-sy"><span class="${m.d>0?'up':m.d<0?'dn':''}">${esc(m.c)}</span></div>`:m.k==='me'?`<div class="sj-row sjme">${avI(me)}<div class="sj-bb">${esc(m.c)}</div></div>`:`<div class="sj-row">${avI(ta)}<div><div class="sj-nm">${esc(x.taName)}</div><div class="sj-bb">${esc(m.c)}</div></div></div>`).join('')
+   +(st.busy?`<div class="sj-row">${avI(ta)}<div class="sj-bb sj-ty"><i></i><i></i><i></i></div></div>`:'')
+   +(st.err?`<div class="sj-hint">⚠️ ${esc(st.err)}${!x.msgs.length?' <button data-a="retry" style="text-decoration:underline;font-weight:700">重试</button>':''}</div>`:'')
+   +(x.ended?`<div class="sj-end"><span class="sj-tt ${x.end.ty}">${esc(x.end.lab)}</span><h3>${esc(x.end.title)}</h3><p>${esc(x.end.epilogue)}</p><div class="sj-ln">${esc(x.end.line)}</div><div class="sj-sm">好感度 ${x.aff} · 共 ${x.turns} 轮 · ${x.mode==='me'?'我攻略 TA':'TA 攻略我'}</div>
+     <button class="sj-go g" data-a="favr">${favHas(x.script.id)?'★ 已收藏':'☆ 收藏剧本'}</button><button class="sj-go g" data-a="again">再来一次</button><button class="sj-go" data-a="back">返回</button></div>`:'');
+  const ms=q('#sjms');ms.scrollTop=ms.scrollHeight;
+  const inp=q('#sji'),sd=q('#sjsd');if(inp){inp.disabled=!!(st.busy||x.ended);sd.disabled=!!(st.busy||x.ended)}};
+ const afterTurn=async res=>{const x=st.run;if(res.end)await finishRun(x);save()};
+ const send=async()=>{const x=st.run,inp=q('#sji');if(!x||st.busy||x.ended)return;const text=inp.value.trim();if(!text)return;
+  inp.value='';st.err='';x.msgs.push({k:'me',c:text});x.turns++;st.busy=1;paint();
+  const note=x.note;x.note='';
+  try{const res=await doTurn(x,text,note);st.busy=0;paint(res.dl);await afterTurn(res)}
+  catch(e){st.busy=0;x.msgs.pop();x.turns--;x.note=note;inp.value=text;st.err='出错了：'+String(e&&e.message||e).slice(0,120)+'（内容已放回输入框，可再发一次）'}
+  save();paint()};
+ const open1=async x=>{st.busy=1;st.err='';paint();
+  try{await doTurn(x,'（系统：开始剧本）请给出开场旁白，交代场景；'+(x.mode==='ta'?'然后对方主动出场，用符合性格的方式向玩家搭话或行动。':'然后对方以符合性格的方式出场。')+'本轮 delta 必须为 0，progress 约 5。','');x.msgs=x.msgs.filter(m=>!(m.k==='sy'&&!m.d))}
+  catch(e){st.err='开场失败：'+String(e&&e.message||e).slice(0,120)}
+  st.busy=0;save();paint()};
+ const begin=async(s,mode,me,ta)=>{const x=newRun(s,mode,me,ta);d.runs.push(x);st.run=x;st.menu=0;st.err='';play();save();await open1(x)};
+ const adj=async dir=>{const x=st.run;if(!x||x.mode!=='ta'||st.busy||x.ended)return;const n=3+Math.floor(Math.random()*10),dl=dir*n;x.aff=clamp(x.aff+dl);
+  x.msgs.push({k:'sy',d:dl,c:`你手动${dir>0?'提升':'降低'}了好感度 ${dl>0?'+':''}${dl}`});x.note=(x.note?x.note+'；':'')+`玩家手动将好感度${dir>0?'提高':'降低'}了 ${n} 点（现在 ${x.aff}）`;
+  paint(dl);if(x.aff>=100||x.aff<=0){st.busy=1;paint();await finishRun(x);st.busy=0}save();paint()};
+
+ r.onclick=async e=>{const t=e.target.closest('[data-a]');if(!t){if(st.menu&&!e.target.closest('.sj-menu')){st.menu=0;const m=q('.sj-menu');m&&m.remove()}return}
+  const a=t.dataset.a;
+  if(a==='close')return closeApp();
+  if(a==='tab'){st.tab=t.dataset.v;return home()}
+  if(a==='sel'){st.sel=t.dataset.id;d.sel=st.sel;save();return home()}
+  if(a==='gen'){const c=fOf(st.sel);if(!c||st.loading)return;st.loading=1;d.batch=[];d.sel=c.id;home();const g=pick(GEN,3),k=pick(KEY,3);let le='';
+   for(let i=0;i<3;i++){try{d.batch.push(await one(c,g[i],k[i]));save()}catch(err){le=String(err&&err.message||err)}if(!st.run&&q('.sj-tb'))home()}
+   st.loading=0;save();if(le)toast((d.batch.length?'有剧本没生成出来，可以再点一次：':'生成失败：')+le.slice(0,60));if(!st.run&&q('.sj-tb'))home();return}
+  if(a==='fav'){const s=findS(t.dataset.sid);if(!s)return;if(favHas(s.id))d.fav=d.fav.filter(x=>x.id!==s.id);else d.fav.push(JSON.parse(JSON.stringify(s)));save();return home()}
+  if(a==='pick'){const s=findS(t.dataset.sid);if(!s)return;const m=s.cid&&fOf(s.cid)?'cur':'scr',n=defNames(s,m);st.sheet={sid:s.id,mode:'me',nm:m,me:n.me,ta:n.ta};return home()}
+  if(a==='sx'){st.sheet=null;return home()}
+  if(a==='md'){keepNames();st.sheet.mode=t.dataset.v;return home()}
+  if(a==='nmm'){const s=findS(st.sheet.sid),n=defNames(s,t.dataset.v);st.sheet.nm=t.dataset.v;st.sheet.me=n.me;st.sheet.ta=n.ta;return home()}
+  if(a==='go'){keepNames();const h=st.sheet,s=findS(h.sid),dn=defNames(s,h.nm);st.sheet=null;return begin(s,h.mode,(h.me||'').trim()||dn.me,(h.ta||'').trim()||dn.ta)}
+  if(a==='cont'){st.run=d.runs.find(x=>x.id===t.dataset.id);st.menu=0;return st.run&&play()}
+  if(a==='delr'){if(confirm('删除这条记录吗？')){d.runs=d.runs.filter(x=>x.id!==t.dataset.id);save();home()}return}
+  if(a==='back'){if(st.run&&!st.run.msgs.length){d.runs=d.runs.filter(y=>y!==st.run);save()}st.tab='run';st.err='';return home()}
+  if(a==='retry')return open1(st.run);
+  if(a==='menu'){st.menu=st.menu?0:1;return play()}
+  if(a==='favr'){const s=st.run.script;if(favHas(s.id))d.fav=d.fav.filter(x=>x.id!==s.id);else d.fav.push(JSON.parse(JSON.stringify(s)));save();st.menu=0;return play()}
+  if(a==='endr'){st.menu=0;if(st.busy||st.run.ended)return play();if(!confirm('现在结束这个剧本吗？'))return play();st.busy=1;play();await finishRun(st.run);st.busy=0;save();return paint()}
+  if(a==='again'){const s=st.run.script;if(!findS(s.id))d.batch=[s,...d.batch];st.tab='gen';const m=fOf(s.cid)?'cur':'scr',n=defNames(s,m);st.sheet={sid:s.id,mode:st.run.mode,nm:m,me:n.me,ta:n.ta};return home()}
+  if(a==='up')return adj(1);if(a==='dn')return adj(-1)};
+ home()}
+const oa=openApp;openApp=function(id){if(id!=='scr')return oa(id);const r=document.createElement('div');r.className='app';document.body.append(r);stack.push(r);document.body.classList.add('in');scrApp(r)};
+/* 桌面图标：放进第三页的空格里 */
+const rhS=window.renderHome;window.renderHome=function(){const L=S.layout;if(![...L.grid,...L.dock].includes('scr')){const i=L.grid.findIndex((x,j)=>j>=40&&!x);if(i>-1){L.grid[i]='scr';save()}}return rhS.apply(this,arguments)};
+renderHome();
+})();
+</script>
+
+<!-- ===== 补丁四十三：真实手机上锁（安装版内置：开无障碍权限 → 选应用 → 好友远程锁，打开被锁应用就送回桌面） ===== -->
+<style>.cl-lv button{color:#007aff!important}</style>
+<script>
+(()=>{
+let _lk=null;const CP=()=>window.Capacitor,LK=()=>{const c=CP();if(!c)return null;if(c.Plugins&&c.Plugins.CelyraLock)return c.Plugins.CelyraLock;if(!_lk){try{if(c.registerPlugin&&c.isNativePlatform&&c.isNativePlatform())_lk=c.registerPlugin('CelyraLock')}catch(e){}}return _lk};
+const R=window.__real={native:!!(CP()&&CP().isNativePlatform&&CP().isNativePlatform()),ic:{}};
+const real=()=>{const c=S.cel=S.cel||{};const rl=c.real=c.real||{};rl.apps=Array.isArray(rl.apps)?rl.apps:[];rl.ok=rl.ok||{};rl.lock=rl.lock||{};rl.pk=rl.pk||{};return rl};
+R.openSettings=()=>{const l=LK();if(l)l.openSettings().catch(()=>toast('打不开系统设置'))};
+R.openAppInfo=()=>{const l=LK();if(l)l.openAppInfo().catch(()=>toast('打不开应用信息页'))};
+/* 读取：无障碍有没有开 + 手机里的应用列表 */
+R.load=async full=>{const l=LK();if(!l)return;const rl=real(),was=rl.paired;let ch=false;
+ try{rl.paired=!!(await l.status()).enabled}catch(e){return}
+ if(rl.paired!==was)ch=true;
+ if(rl.paired&&(full||!was||!Object.keys(R.ic).length)){
+  try{const r=await l.getApps(),names=[],pk={},seen={};
+   (r.apps||[]).forEach(x=>{let n=String(x.label||x.pkg);if(seen[n])n=n+'·'+String(x.pkg).split('.').pop();seen[n]=1;names.push(n);pk[n]=x.pkg;R.ic[n]=x.icon});
+   if(names.length){rl.apps=names;rl.pk=pk;Object.keys(rl.ok).forEach(k=>{if(!pk[k]){delete rl.ok[k];delete rl.lock[k]}});ch=true}}catch(e){}}
+ if(ch){save();window.dispatchEvent(new Event('real-upd'))}};
+/* 同步：现在该锁哪些应用 → 原生无障碍服务 */
+let last='';
+const push=()=>{const l=LK();if(!l)return;const c=S.cel||{},rl=c.real||{};
+ const f=c.on?(S.contacts||[]).find(x=>x.id===c.fid&&!x.fdel):null,on=!!(f&&rl.paired);
+ const pk=on?(rl.apps||[]).filter(a=>rl.ok&&rl.ok[a]&&rl.lock&&rl.lock[a]&&rl.pk&&rl.pk[a]).map(a=>rl.pk[a]):[];
+ const by=f?(f.remark||f.name):'TA',key=JSON.stringify([on,pk,by]);if(key===last)return;last=key;
+ l.setLocked({on,pkgs:pk,by}).catch(()=>{last=''})};
+if(R.native&&LK()){R.load(0);setInterval(push,1500);setInterval(()=>{if(!document.hidden)R.load(0)},8000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)R.load(0)})}
 })();
 </script>
 
