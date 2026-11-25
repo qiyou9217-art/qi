@@ -8781,8 +8781,226 @@ const push=()=>{const l=LK();if(!l)return;const c=S.cel||{},rl=c.real||{};
  const pk=on?(rl.apps||[]).filter(a=>rl.ok&&rl.ok[a]&&rl.lock&&rl.lock[a]&&rl.pk&&rl.pk[a]).map(a=>rl.pk[a]):[];
  const by=f?(f.remark||f.name):'TA',key=JSON.stringify([on,pk,by]);if(key===last)return;last=key;
  l.setLocked({on,pkgs:pk,by}).catch(()=>{last=''})};
-if(R.native&&LK()){R.load(0);setInterval(push,1500);setInterval(()=>{if(!document.hidden)R.load(0)},8000);
- document.addEventListener('visibilitychange',()=>{if(!document.hidden)R.load(0)})}
+/* 从「此应用已被 TA 限制」界面点了「去聊天请求解锁」回来：自动打开智能遥控的聊天 */
+R.go=async()=>{const l=LK();if(!l)return;try{const r=await l.popGoChat();if(r&&r.go){openApp('ir');setTimeout(()=>{const b=document.querySelector('#clch');if(b)b.click()},250)}}catch(e){}};
+if(R.native&&LK()){R.load(0);setInterval(push,1500);setInterval(()=>{if(!document.hidden)R.load(0)},8000);setTimeout(R.go,1200);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden){R.load(0);R.go()}})}
+})();
+</script>
+
+<!-- ===== 补丁四十四：情侣问答 App（选好友 / 日常·Deeptalk·NSFW 三个板块 / 每个好友独立 / 十问十答 / 默契指数） ===== -->
+<style>
+.cq{flex:1;min-height:0;display:flex;flex-direction:column;position:relative;background:linear-gradient(180deg,#fff0f4 0%,#fff6f8 30%,#fff 60%);color:#2b2230;font-family:-apple-system,"PingFang SC",sans-serif}
+:where(.cq button){background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer}
+.cq textarea{font:inherit;color:#2b2230}
+.cq-top{flex:none;display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 10px) 16px 6px}
+.cq-top b{flex:1;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cq-bk{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.85);box-shadow:0 2px 10px rgba(255,111,145,.18);display:grid;place-items:center;flex:none}
+.cq-bd{flex:1;min-height:0;overflow-y:auto;padding:2px 18px 30px}
+.cq-h1{font-size:30px;font-weight:800;margin:2px 0}.cq-h1 i{font-style:normal;color:#ff6f91}
+.cq-sub{font-size:13.5px;color:#a08a96;margin-bottom:4px}
+.cq-av{display:block;width:50px;height:50px;border-radius:50%;background-size:cover;background-position:center;background-color:#f0dfe5;flex:none}
+.cq-fr{display:flex;gap:14px;overflow-x:auto;padding:12px 4px 8px;scrollbar-width:none}.cq-fr::-webkit-scrollbar{display:none}
+.cq-f{flex:none;width:60px;text-align:center;font-size:12px;color:#a08a96}
+.cq-f .cq-av{margin:0 auto 6px}.cq-f.cq-on .cq-av{outline:2.5px solid #ff6f91;outline-offset:2px}.cq-f.cq-on{color:#2b2230;font-weight:700}
+.cq-f span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cq-pair{display:flex;align-items:center;gap:14px;margin-top:10px;padding:16px;border-radius:26px;background:#fff;box-shadow:0 8px 28px rgba(255,111,145,.14)}
+.cq-pair .cq-hs{display:flex;align-items:center;flex:none}.cq-pair .cq-hs .cq-av{width:54px;height:54px;border:3px solid #fff}.cq-pair .cq-hs .cq-av+.cq-hr{margin:0 -8px;z-index:2}.cq-pair .cq-hs .cq-hr+.cq-av{margin-left:-8px}
+.cq-hr{width:26px;height:26px;border-radius:50%;background:#ff6f91;color:#fff;display:grid;place-items:center;font-size:13px;box-shadow:0 2px 8px rgba(255,111,145,.5)}
+.cq-pair .cq-tx{flex:1;min-width:0}.cq-pair .cq-tx b{display:block;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cq-pair .cq-tx span{font-size:12.5px;color:#a08a96}
+.cq-pair .cq-sc{text-align:center;flex:none}.cq-pair .cq-sc em{display:block;font-style:normal;font-size:26px;font-weight:800;color:#ff6f91;line-height:1}.cq-pair .cq-sc small{font-size:11px;color:#a08a96}
+.cq-lb{font-size:13px;color:#a08a96;margin:22px 0 10px;font-weight:600;letter-spacing:1px}
+.cq-md{display:flex;align-items:center;gap:14px;width:100%;box-sizing:border-box;margin-bottom:12px;padding:18px;border-radius:24px;text-align:left;position:relative;overflow:hidden}
+.cq-md .cq-ico{width:50px;height:50px;border-radius:16px;background:rgba(255,255,255,.55);display:grid;place-items:center;flex:none}
+.cq-md .cq-ico svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.cq-md .cq-tx{flex:1;min-width:0}.cq-md .cq-tx b{display:block;font-size:18px}.cq-md .cq-tx span{display:block;font-size:12.5px;opacity:.75;margin-top:3px}
+.cq-md .cq-st{flex:none;font-size:12.5px;font-weight:700;padding:6px 12px;border-radius:14px;background:rgba(255,255,255,.6)}
+.cq-m1{background:linear-gradient(135deg,#fff1d2,#ffd9b0);color:#7a4300}
+.cq-m2{background:linear-gradient(135deg,#e9e6ff,#c9d2ff);color:#312c86}
+.cq-m3{background:linear-gradient(135deg,#43203a,#8a2550);color:#fff}.cq-m3 .cq-ico{background:rgba(255,255,255,.16)}.cq-m3 .cq-st{background:rgba(255,255,255,.18)}
+.cq-18{position:absolute;right:12px;top:10px;font-size:10px;font-weight:800;letter-spacing:1px;padding:2px 7px;border-radius:8px;border:1px solid rgba(255,255,255,.6)}
+.cq-rc{display:flex;align-items:center;gap:12px;width:100%;padding:13px 16px;border-radius:18px;background:#fff;box-shadow:0 3px 14px rgba(255,111,145,.09);margin-bottom:10px;text-align:left}
+.cq-rc .cq-tg{flex:none;font-size:12px;font-weight:700;padding:4px 10px;border-radius:10px}
+.cq-rc .cq-tx{flex:1;min-width:0;font-size:12.5px;color:#a08a96}.cq-rc .cq-tx b{display:block;font-size:14.5px;color:#2b2230;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.cq-rc em{font-style:normal;font-size:20px;font-weight:800;color:#ff6f91}
+.cq-em{text-align:center;color:#c2b0b9;font-size:13.5px;padding:22px 0}
+/* 作答 */
+.cq-pg{height:6px;border-radius:3px;background:#f6dfe6;margin:6px 18px 0;overflow:hidden}.cq-pg i{display:block;height:100%;background:linear-gradient(90deg,#ff9bb3,#ff6f91);border-radius:3px;transition:width .35s}
+.cq-dots{display:flex;gap:7px;justify-content:center;margin:14px 0 4px}.cq-dots button{width:9px;height:9px;border-radius:50%;background:#f1d9e1}.cq-dots button.cq-fi{background:#ff9bb3}.cq-dots button.cq-on{background:#ff6f91;box-shadow:0 0 0 3px rgba(255,111,145,.25)}
+.cq-qc{margin-top:16px;padding:24px 20px;border-radius:28px;background:#fff;box-shadow:0 10px 32px rgba(255,111,145,.16)}
+.cq-qn{display:inline-block;padding:4px 12px;border-radius:12px;background:#ffe9ef;color:#ff6f91;font-weight:800;font-size:13px}
+.cq-qt{font-size:22px;font-weight:800;line-height:1.55;margin:14px 0 16px}
+.cq-ta{display:block;width:100%;box-sizing:border-box;min-height:150px;padding:14px;border-radius:18px;border:1.5px solid #f6dfe6;background:#fffafb;font-size:16px;line-height:1.7;outline:0;resize:none}.cq-ta:focus{border-color:#ff9bb3}
+.cq-bt{display:flex;gap:10px;margin-top:16px}.cq-bt button{flex:1;height:48px;border-radius:24px;font-weight:700;font-size:15px;background:#fff;box-shadow:0 3px 14px rgba(255,111,145,.12)}
+.cq-bt button.cq-p{flex:2;background:linear-gradient(135deg,#ff8aa6,#ff6f91);color:#fff;box-shadow:0 6px 18px rgba(255,111,145,.4)}.cq-bt button:disabled{opacity:.4}
+.cq-sk{text-align:center;margin-top:10px;font-size:13px;color:#c2b0b9}
+.cq-done{text-align:center;padding:50px 10px 0}.cq-done .cq-big{font-size:64px;line-height:1;animation:cqb 1.4s ease-in-out infinite}@keyframes cqb{50%{transform:scale(1.12)}}
+.cq-done h2{margin:18px 0 6px;font-size:24px}.cq-done p{margin:0 0 26px;color:#a08a96;font-size:14.5px;line-height:1.7}
+.cq-done .cq-bt{flex-direction:column}.cq-done .cq-bt button{flex:none}
+.cq-ld{text-align:center;padding:90px 10px}.cq-ld .cq-hs{display:inline-flex;gap:6px}.cq-ld .cq-hs i{font-style:normal;font-size:30px;color:#ff6f91;animation:cqh 1s infinite}.cq-ld .cq-hs i:nth-child(2){animation-delay:.15s}.cq-ld .cq-hs i:nth-child(3){animation-delay:.3s}@keyframes cqh{50%{transform:translateY(-10px);opacity:.4}}
+.cq-ld p{margin:16px 0 0;color:#a08a96;font-size:14px}
+/* 结果 */
+.cq-hd{margin-top:8px;padding:20px 18px;border-radius:28px;background:#fff;box-shadow:0 10px 32px rgba(255,111,145,.16);text-align:center}
+.cq-ring{position:relative;width:132px;height:132px;margin:0 auto}.cq-ring svg{width:132px;height:132px;transform:rotate(-90deg)}.cq-ring .cq-c1{fill:none;stroke:#fde3ea;stroke-width:10}.cq-ring .cq-c2{fill:none;stroke:#ff6f91;stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset 1s}
+.cq-ring div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.cq-ring em{font-style:normal;font-size:36px;font-weight:800;color:#ff6f91;line-height:1}.cq-ring small{font-size:11.5px;color:#a08a96;margin-top:4px}
+.cq-lv{display:inline-block;margin-top:12px;padding:5px 14px;border-radius:14px;background:#ffe9ef;color:#ff6f91;font-weight:800;font-size:14px}
+.cq-sm{margin:12px 6px 0;font-size:15px;line-height:1.7;font-weight:600}.cq-sm::before{content:"“"}.cq-sm::after{content:"”"}
+.cq-it{margin-top:14px;padding:16px 16px 14px;border-radius:22px;background:#fff;box-shadow:0 4px 18px rgba(255,111,145,.1);opacity:0;animation:cqin .5s forwards}@keyframes cqin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.cq-it .cq-q{font-weight:800;font-size:15.5px;line-height:1.6}.cq-it .cq-q b{color:#ff6f91}
+.cq-it .cq-a{margin-top:8px;font-size:15px;line-height:1.7;color:#2b2230;white-space:pre-wrap;word-break:break-word}.cq-it .cq-a b{color:#2b2230}
+.cq-it .cq-fa{margin-top:8px;padding:10px 12px;border-radius:14px;background:#fff3f6;font-size:15px;line-height:1.7;white-space:pre-wrap;word-break:break-word}.cq-it .cq-fa b{color:#ff6f91}
+.cq-it .cq-m{display:flex;justify-content:flex-end;margin-top:8px}.cq-it .cq-m span{font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:10px;background:#f4f4f6;color:#888}
+.cq-it .cq-m span.cq-hi{background:#ffe9ef;color:#ff6f91}.cq-it .cq-m span.cq-lo{background:#eef0ff;color:#5b63d6}
+.cq-ac{display:flex;flex-direction:column;gap:10px;margin-top:22px}.cq-ac button{height:48px;border-radius:24px;font-weight:700;font-size:15px;background:#fff;box-shadow:0 3px 14px rgba(255,111,145,.12)}.cq-ac button.cq-p{background:linear-gradient(135deg,#ff8aa6,#ff6f91);color:#fff}
+.cq-dl{display:block;margin:16px auto 0;font-size:12.5px;color:#c2b0b9}
+.cq-sheet{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:flex-end}.cq-sbg{position:absolute;inset:0;background:rgba(40,10,25,.45)}
+.cq-sp{position:relative;background:#fff;border-radius:26px 26px 0 0;padding:24px 20px calc(env(safe-area-inset-bottom) + 20px);text-align:center}.cq-sp h3{margin:0 0 8px;font-size:19px}.cq-sp p{margin:0 0 18px;color:#a08a96;font-size:14px;line-height:1.7}
+</style>
+<script>
+(()=>{
+const nm=c=>window.__cel&&window.__cel.nm?window.__cel.nm(c):(c.remark||c.name);
+N.cq='情侣问答';P.cq='M12 21s-7.5-4.6-9.4-9.3A5.2 5.2 0 0 1 12 8.2a5.2 5.2 0 0 1 9.4 3.5C19.5 16.4 12 21 12 21z';
+const D=()=>{const d=S.cq=S.cq||{};d.f=d.f||{};return d};
+const friends=()=>(S.contacts||[]).filter(c=>!c.fdel);
+const fOf=id=>(S.contacts||[]).find(c=>c.id===id);
+const FD=id=>{const d=D();return d.f[id]=d.f[id]||{rounds:[]}};
+const avOf=c=>(c&&c.avatar)||DEF;
+const avI=(a,cls)=>`<i class="cq-av ${cls||''}" style="background-image:url('${a}')"></i>`;
+const SUN='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>';
+const MOON='<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>';
+const FLAME='<svg viewBox="0 0 24 24"><path d="M12 22c4 0 7-2.8 7-6.8 0-3-1.8-5-3.3-6.6-.5 1.5-1.3 2.4-2.4 2.9.3-2.8-.9-6-4.3-7.5.2 3-1.6 4.8-2.7 6.5C5.3 12.2 5 13.6 5 15.2 5 19.2 8 22 12 22z"/></svg>';
+const MODS={
+ daily:{n:'日常问答',sub:'生活里的小默契',cls:'cq-m1',ic:SUN,tg:'background:#fff1d2;color:#7a4300',hint:'生活习惯、口味喜好、小癖好、共同回忆、日常小事。轻松有趣，容易回答。'},
+ deep:{n:'Deeptalk 问答',sub:'说点平时不说的话',cls:'cq-m2',ic:MOON,tg:'background:#e9e6ff;color:#312c86',hint:'价值观、恐惧与不安、成长经历、对感情的期待、人生选择、内心深处的秘密。需要认真思考，温柔但有深度。'},
+ nsfw:{n:'NSFW 问答',sub:'只属于两个人',cls:'cq-m3',ic:FLAME,tg:'background:#43203a;color:#fff',hint:'成年情侣之间的亲密、暧昧与情欲话题（喜好、幻想、氛围、挑逗、小秘密）。措辞可以大胆撩人，但双方都是成年人且彼此自愿，不涉及未成年人、胁迫、暴力、违法内容。'}};
+const lvOf=n=>n>=80?'心有灵犀':n>=60?'默契在线':n>=40?'各有千秋':'脑回路不同';
+const pad=n=>String(n).padStart(2,'0');
+const dt=t=>{const d=new Date(t);return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`};
+
+/* ===== 调用 API ===== */
+const llm=async(sys,msgs)=>{const a=S.api;if(!a||!a.url||!a.key)throw'请先在「设置」中配置 API';
+ const res=await fetch(a.url.replace(/\/+$/,'')+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+a.key},body:JSON.stringify({model:a.model||'gpt-4o-mini',messages:[{role:'system',content:sys},...msgs]})});
+ const j=await res.json();if(!res.ok)throw(j.error&&j.error.message)||res.status;return String((j.choices&&j.choices[0]&&j.choices[0].message.content)||'')};
+const pj=t=>{t=String(t).replace(/```json|```/g,'').trim();
+ const tp=s=>{for(const f of [x=>x,x=>x.replace(/\r?\n/g,' '),x=>x.replace(/\r?\n/g,' ').replace(/,\s*([}\]])/g,'$1')]){try{return JSON.parse(f(s))}catch(e){}}return null};
+ let o=tp(t);if(o)return o;
+ const a=t.indexOf('['),b=t.lastIndexOf(']'),c=t.indexOf('{'),d=t.lastIndexOf('}'),cs=[];if(a>-1&&b>a)cs.push([a,t.slice(a,b+1)]);if(c>-1&&d>c)cs.push([c,t.slice(c,d+1)]);cs.sort((x,y)=>x[0]-y[0]);
+ for(const [,s] of cs){o=tp(s);if(o)return o}return null};
+const me=()=>S.me.name||'我';
+/* 对方的人设（和聊天里一致：人设、对用户的称呼、世界观） */
+const personaOf=c=>{const sel=c.wbSel&&c.wbSel.length?new Set(c.wbSel):null;
+ const wb=(S.wb||[]).map(b=>{const its=b.items.filter((_,i)=>!sel||sel.has(b.id+':'+i));return its.length?`【${b.name}】\n`+its.map(i=>`${i.t}：${i.c}`).join('\n'):''}).filter(Boolean).join('\n\n');
+ return `你是${c.name}（个性签名：${c.sign||'无'}）。人设：${c.persona||'无'}\n用户在这个聊天里的名字：${c.myName||S.me.name}；你对用户的称呼：${c.myRemark||'（无特别称呼）'}；用户设定：${c.myPersona||'无'}\n世界观设定：\n${wb||'无'}`};
+
+/* ===== 出题：每个板块 10 题 ===== */
+const genQs=async(c,mod)=>{const m=MODS[mod],prev=FD(c.id).rounds.filter(r=>r.mod===mod).flatMap(r=>r.qs).slice(-40);
+ const sys=`你是「情侣问答」的出题人。请为一对情侣出 10 道问题，板块：${m.n}。
+板块要求：${m.hint}
+要求：
+1. 问题要具体、有画面感、容易回答，每题不超过 35 字，不要编号，不要解释。
+2. 10 道题之间不重复，也不要和这些已经问过的题重复：${prev.length?prev.join(' / '):'（暂无）'}
+3. 提问对象是用户「${me()}」，对方是「${nm(c)}」，两人是情侣；问题可以用「你……」的形式。
+只输出 JSON 数组，包含 10 个字符串，不要任何其他文字。`;
+ let err='返回的内容不是 10 道题';
+ for(let i=0;i<2;i++){try{const o=pj(await llm(sys,[{role:'user',content:'开始出题'}]));const arr=(Array.isArray(o)?o:(o&&o.questions)||[]).map(x=>typeof x==='string'?x:(x&&(x.q||x.question))||'').map(x=>String(x).trim()).filter(Boolean);
+  if(arr.length>=10)return arr.slice(0,10);err='只生成了 '+arr.length+' 道题'}catch(e){err=String(e&&e.message||e)}}
+ throw err};
+
+/* ===== 生成对方的回答（10 题一起）+ 默契度 ===== */
+const genAns=async(c,r)=>{const m=MODS[r.mod],name=c.name;
+ const body=r.qs.map((q,i)=>`${i+1}. Q：${q}\n   ${me()}的回答：${(r.ans[i]||'').trim()||'（跳过）'}`).join('\n');
+ const msg=`我们在玩情侣问答（板块：${m.n}）。下面是 10 道题和${me()}的回答。
+请你以${name}的身份，对每道题给出你自己的回答：先独立作答，不要被对方的答案左右；口语化，符合你的人设和你们的关系，每题 1~2 句，可以带点小情绪。${r.mod==='nsfw'?'\n这是成年人之间的私密话题，保持角色，可以大胆撩人，但不要出戏。':''}
+然后对比双方的答案，给每题打「默契度」0~100（两人的答案有多契合），再给整体「默契指数」0~100，和一句 25 字内的总评（用你的口吻）。
+${body}
+只输出 JSON：{"a":["10 个回答"],"s":[10 个整数],"idx":整数,"sum":"总评"}，不要任何其他文字。`;
+ let err='返回的内容不是答案格式';
+ for(let i=0;i<2;i++){try{const o=pj(await llm(personaOf(c),[{role:'user',content:msg}]));
+  if(o&&Array.isArray(o.a)&&o.a.length>=10){const s=(Array.isArray(o.s)?o.s:[]).map(x=>Math.max(0,Math.min(100,Math.round(+x||0))));while(s.length<10)s.push(60);
+   const idx=Number.isFinite(+o.idx)&&o.idx!==''?Math.max(0,Math.min(100,Math.round(+o.idx))):Math.round(s.slice(0,10).reduce((x,y)=>x+y,0)/10);
+   return{fa:o.a.slice(0,10).map(x=>String(x)),sc:s.slice(0,10),idx,sum:String(o.sum||'')}}err='只拿到 '+((o&&o.a&&o.a.length)||0)+' 个回答'}catch(e){err=String(e&&e.message||e)}}
+ throw err};
+
+/* ===== 页面 ===== */
+function cqApp(r){
+ const d=D();const st={sel:d.sel&&fOf(d.sel)?d.sel:(friends()[0]||{}).id,view:'home',rid:null,sheet:0,busy:0};
+ const q=s=>r.querySelector(s);
+ const cur=()=>{const f=fOf(st.sel);return f&&FD(f.id).rounds.find(x=>x.id===st.rid)};
+ const top=(t,bk)=>`<div class="cq-top"><button class="cq-bk" data-a="${bk||'back'}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><b>${esc(t||'')}</b></div>`;
+ const doneOf=f=>FD(f.id).rounds.filter(x=>x.status==='done');
+
+ /* —— 首页 —— */
+ const home=()=>{st.view='home';st.rid=null;const fr=friends(),f=fOf(st.sel);
+  let body=`<div class="cq-h1">情侣<i>问答</i></div><div class="cq-sub">每个好友一本独立的问答册，互不干扰</div>`;
+  if(!fr.length)body+='<div class="cq-em">还没有好友，先去微信添加一位</div>';
+  else{
+   body+=`<div class="cq-fr">${fr.map(c=>`<button class="cq-f${c.id===st.sel?' cq-on':''}" data-a="sel" data-id="${c.id}">${avI(avOf(c))}<span>${esc(nm(c))}</span></button>`).join('')}</div>`;
+   const dn=doneOf(f),avg=dn.length?Math.round(dn.reduce((s,x)=>s+x.idx,0)/dn.length):null;
+   body+=`<div class="cq-pair"><div class="cq-hs">${avI(S.me.avatar||DEF)}<span class="cq-hr">♥</span>${avI(avOf(f))}</div><div class="cq-tx"><b>${esc(me())} & ${esc(nm(f))}</b><span>已完成 ${dn.length} 轮问答</span></div><div class="cq-sc"><em>${avg==null?'--':avg}</em><small>平均默契</small></div></div>`;
+   body+='<div class="cq-lb">选一个板块，开始十问十答</div>';
+   body+=Object.keys(MODS).map(k=>{const m=MODS[k],rs=FD(f.id).rounds.filter(x=>x.mod===k),on=rs.find(x=>x.status!=='done');
+    const stt=on?(on.status==='answering'?`继续 ${on.ans.filter(a=>a.trim()).length}/10`:'待查看'):(rs.length?`已答 ${rs.length} 轮`:'开始');
+    return `<button class="cq-md ${m.cls}" data-a="mod" data-k="${k}">${k==='nsfw'?'<span class="cq-18">18+</span>':''}<span class="cq-ico">${m.ic}</span><span class="cq-tx"><b>${m.n}</b><span>${m.sub} · 10 道题</span></span><span class="cq-st">${stt}</span></button>`}).join('');
+   const rec=FD(f.id).rounds.filter(x=>x.status==='done').sort((a,b)=>b.t-a.t);
+   if(rec.length)body+=`<div class="cq-lb">问答记录</div>`+rec.map(x=>`<button class="cq-rc" data-a="open" data-id="${x.id}"><span class="cq-tg" style="${MODS[x.mod].tg}">${MODS[x.mod].n.split(' ')[0]}</span><span class="cq-tx"><b>${esc(x.sum||lvOf(x.idx))}</b>${dt(x.t)}</span><em>${x.idx}</em></button>`).join('')}
+  r.innerHTML=`<div class="cq">${top('情侣问答','close')}<div class="cq-bd">${body}</div>${st.sheet?sheetH():''}</div>`};
+ const sheetH=()=>`<div class="cq-sheet"><div class="cq-sbg" data-a="sx"></div><div class="cq-sp"><h3>NSFW 板块含成人话题</h3><p>这个板块的问题偏亲密、暧昧，仅限成年人使用。<br>确认你已年满 18 周岁，再继续吗？</p><div class="cq-bt"><button data-a="sx">取消</button><button class="cq-p" data-a="ok18">我已成年，继续</button></div></div></div>`;
+
+ /* —— 出题中 —— */
+ const loading=(txt)=>{r.innerHTML=`<div class="cq">${top('')}<div class="cq-bd"><div class="cq-ld"><div class="cq-hs"><i>♥</i><i>♥</i><i>♥</i></div><p>${esc(txt)}</p></div></div></div>`};
+ const startMod=async k=>{const f=fOf(st.sel);if(!f||st.busy)return;
+  const on=FD(f.id).rounds.find(x=>x.mod===k&&x.status!=='done');
+  if(on){st.rid=on.id;return on.status==='answering'?ans():fin()}
+  st.busy=1;loading(`正在为你和 ${nm(f)} 准备 10 道题…`);
+  try{const qs=await genQs(f,k),x={id:uid(),mod:k,t:Date.now(),qs,ans:Array(10).fill(''),step:0,status:'answering'};FD(f.id).rounds.push(x);save();st.rid=x.id;st.busy=0;ans()}
+  catch(e){st.busy=0;toast('出题失败：'+String(e&&e.message||e).slice(0,70));home()}};
+
+ /* —— 作答：一次一题 —— */
+ const ans=()=>{st.view='ans';const x=cur();if(!x)return home();const i=x.step,m=MODS[x.mod],last=i===9;
+  r.innerHTML=`<div class="cq">${top(m.n+' · '+(i+1)+'/10')}<div class="cq-pg"><i style="width:${(i+1)*10}%"></i></div><div class="cq-bd">
+   <div class="cq-dots">${x.qs.map((_,j)=>`<button data-a="jump" data-i="${j}" class="${j===i?'cq-on':x.ans[j].trim()?'cq-fi':''}"></button>`).join('')}</div>
+   <div class="cq-qc"><span class="cq-qn">Q${i+1}</span><div class="cq-qt">${esc(x.qs[i])}</div><textarea class="cq-ta" id="cqta" placeholder="写下你的回答…">${esc(x.ans[i])}</textarea></div>
+   <div class="cq-bt"><button data-a="prev" ${i===0?'disabled':''}>上一题</button><button class="cq-p" data-a="next">${last?'答完了':'下一题'}</button></div><div class="cq-sk"><button data-a="skip">这题跳过</button></div></div></div>`;
+  const ta=q('#cqta');let tm=0;ta.oninput=()=>{x.ans[i]=ta.value;clearTimeout(tm);tm=setTimeout(save,400)}};
+ const keep=()=>{const x=cur(),ta=q('#cqta');if(x&&ta){x.ans[x.step]=ta.value;save()}};
+ /* —— 答完：去看对方的回答 —— */
+ const fin=()=>{st.view='fin';const x=cur(),f=fOf(st.sel);if(!x)return home();x.status='answered';save();
+  r.innerHTML=`<div class="cq">${top(MODS[x.mod].n)}<div class="cq-bd"><div class="cq-done"><div class="cq-big">💌</div><h2>10 道题都答完啦</h2><p>看看 ${esc(nm(f))} 会怎么回答你～<br>对方的答案会和你的放在一起，还有默契指数</p><div class="cq-bt"><button class="cq-p" data-a="see">查看 ${esc(nm(f))} 的回答</button><button data-a="redo">回去改改</button></div></div></div></div>`};
+ const see=async()=>{const x=cur(),f=fOf(st.sel);if(!x||!f||st.busy)return;st.busy=1;loading(`${nm(f)} 正在偷偷写答案…`);
+  try{const o=await genAns(f,x);Object.assign(x,o,{status:'done',t:Date.now()});save();st.busy=0;res()}
+  catch(e){st.busy=0;toast('生成失败：'+String(e&&e.message||e).slice(0,70)+'，可以再点一次');fin()}};
+
+ /* —— 结果：Q / A / 备注 —— */
+ const res=()=>{st.view='res';const x=cur(),f=fOf(st.sel);if(!x||x.status!=='done')return home();const name=nm(f),C=2*Math.PI*54;
+  r.innerHTML=`<div class="cq">${top(MODS[x.mod].n)}<div class="cq-bd">
+   <div class="cq-hd"><div class="cq-ring"><svg viewBox="0 0 132 132"><circle class="cq-c1" cx="66" cy="66" r="54"/><circle class="cq-c2" id="cqc" cx="66" cy="66" r="54" stroke-dasharray="${C}" stroke-dashoffset="${C}"/></svg><div><em>${x.idx}</em><small>默契指数</small></div></div><span class="cq-lv">${lvOf(x.idx)}</span>${x.sum?`<div class="cq-sm">${esc(x.sum)}</div>`:''}</div>
+   ${x.qs.map((qq,i)=>`<div class="cq-it" style="animation-delay:${i*.07}s"><div class="cq-q"><b>Q：</b>${esc(qq)}</div><div class="cq-a"><b>A：</b>${esc(x.ans[i].trim()||'（跳过）')}</div><div class="cq-fa"><b>${esc(name)}：</b>${esc(x.fa[i])}</div><div class="cq-m"><span class="${x.sc[i]>=80?'cq-hi':x.sc[i]<40?'cq-lo':''}">${lvOf(x.sc[i])} ${x.sc[i]}</span></div></div>`).join('')}
+   <div class="cq-ac"><button class="cq-p" data-a="copy">复制整份问答</button><button data-a="again">再来一轮 ${esc(MODS[x.mod].n)}</button><button data-a="back">返回</button></div><button class="cq-dl" data-a="del">删除这一轮</button></div></div>`;
+  setTimeout(()=>{const c=q('#cqc');if(c)c.style.strokeDashoffset=C*(1-x.idx/100)},60)};
+ const toText=()=>{const x=cur(),name=nm(fOf(st.sel));return `【${MODS[x.mod].n}】默契指数 ${x.idx}\n`+x.qs.map((qq,i)=>`Q：${qq}\nA：${x.ans[i].trim()||'（跳过）'}\n${name}：${x.fa[i]}`).join('\n\n')};
+ const copy=async t=>{try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement('textarea');a.value=t;document.body.append(a);a.select();try{document.execCommand('copy')}catch(_){}a.remove()}toast('已复制')};
+
+ r.onclick=async e=>{const t=e.target.closest('[data-a]');if(!t)return;const a=t.dataset.a;
+  if(a==='close')return closeApp();
+  if(a==='back'){if(st.view==='ans')keep();return home()}
+  if(a==='sel'){st.sel=t.dataset.id;d.sel=st.sel;save();return home()}
+  if(a==='mod'){const k=t.dataset.k;if(k==='nsfw'&&!d.ok18){st.sheet=k;return home()}return startMod(k)}
+  if(a==='sx'){st.sheet=0;return home()}
+  if(a==='ok18'){d.ok18=1;save();st.sheet=0;return startMod('nsfw')}
+  if(a==='open'){st.rid=t.dataset.id;return res()}
+  if(a==='jump'){keep();cur().step=+t.dataset.i;save();return ans()}
+  if(a==='prev'){keep();const x=cur();if(x.step>0){x.step--;save();ans()}return}
+  if(a==='next'){keep();const x=cur();if(x.step<9){x.step++;save();return ans()}return fin()}
+  if(a==='skip'){const x=cur(),ta=q('#cqta');if(ta)ta.value='';x.ans[x.step]='';save();if(x.step<9){x.step++;save();return ans()}return fin()}
+  if(a==='redo'){const x=cur();x.status='answering';x.step=0;save();return ans()}
+  if(a==='see')return see();
+  if(a==='copy')return copy(toText());
+  if(a==='again'){const k=cur().mod;return startMod(k)}
+  if(a==='del'){if(confirm('删除这一轮问答吗？')){const f=fOf(st.sel),L=FD(f.id);L.rounds=L.rounds.filter(y=>y.id!==st.rid);save();home()}return}};
+ home()}
+const oa=openApp;openApp=function(id){if(id!=='cq')return oa(id);const r=document.createElement('div');r.className='app';document.body.append(r);stack.push(r);document.body.classList.add('in');cqApp(r)};
+const rhC=window.renderHome;window.renderHome=function(){const L=S.layout;if(![...L.grid,...L.dock].includes('cq')){const i=L.grid.findIndex((x,j)=>j>=40&&!x);if(i>-1){L.grid[i]='cq';save()}}return rhC.apply(this,arguments)};
+renderHome();
 })();
 </script>
 

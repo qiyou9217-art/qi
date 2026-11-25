@@ -64,16 +64,32 @@ public class MainActivity extends BridgeActivity {
 open(d + '/LockService.java', 'w', encoding='utf-8').write('''package %(pkg)s;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.Handler;
-import android.os.Looper;
+import android.content.pm.PackageManager;
+import android.graphics.ColorMatrix;
+import android.graphics.ColorMatrixColorFilter;
+import android.graphics.PixelFormat;
+import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
-import android.widget.Toast;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import java.util.Set;
 
-/** 检测当前打开的应用；如果它在「被限制」名单里，就送回桌面并提示 */
+/** 检测当前打开的应用；如果它在「被限制」名单里，就盖上一层黑灰色的「此应用已被 TA 限制」界面 */
 public class LockService extends AccessibilityService {
-    private long lastKick = 0;
+    private WindowManager wm;
+    private View overlay;
+    private String shownPkg = "";
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent e) {
@@ -83,28 +99,176 @@ public class LockService extends AccessibilityService {
             if (p == null) return;
             String pkg = p.toString();
             if (pkg.equals(getPackageName())) return;
+            String low = pkg.toLowerCase();
+            // 下拉通知栏、输入法弹出时，不改变当前状态
+            if (low.contains("systemui") || low.contains("inputmethod")) return;
             SharedPreferences sp = getSharedPreferences("celyra_lock", MODE_PRIVATE);
-            if (!sp.getBoolean("on", false)) return;
             Set<String> set = sp.getStringSet("pkgs", null);
-            if (set == null || !set.contains(pkg)) return;
-            long now = System.currentTimeMillis();
-            if (now - lastKick < 500) return;
-            lastKick = now;
-            performGlobalAction(GLOBAL_ACTION_HOME);
-            final String msg = "此应用已被 " + sp.getString("by", "TA") + " 限制";
-            new Handler(Looper.getMainLooper()).post(new Runnable() {
-                @Override
-                public void run() {
-                    Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
-                }
-            });
+            if (sp.getBoolean("on", false) && set != null && set.contains(pkg)) {
+                showOverlay(pkg, sp.getString("by", "TA"));
+            } else {
+                hideOverlay();
+            }
         } catch (Throwable t) {
             // 出任何问题都不影响手机正常使用
         }
     }
 
+    private TextView pill(String text, int bg, int fg, float d) {
+        TextView b = new TextView(this);
+        b.setText(text);
+        b.setTextColor(fg);
+        b.setTextSize(16f);
+        b.setTypeface(Typeface.DEFAULT_BOLD);
+        b.setGravity(Gravity.CENTER);
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(bg);
+        g.setCornerRadius(25 * d);
+        b.setBackground(g);
+        return b;
+    }
+
+    private void showOverlay(String pkg, String by) {
+        if (overlay != null && pkg.equals(shownPkg)) return;
+        hideOverlay();
+        final float d = getResources().getDisplayMetrics().density;
+        String label = pkg;
+        Drawable icon = null;
+        try {
+            PackageManager pm = getPackageManager();
+            label = String.valueOf(pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)));
+            icon = pm.getApplicationIcon(pkg);
+        } catch (Throwable ignore) {
+        }
+
+        FrameLayout root = new FrameLayout(this);
+        GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0xFF3A3A3C, 0xFF1C1C1E, 0xFF000000});
+        root.setBackground(bg);
+        root.setClickable(true);
+
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setGravity(Gravity.CENTER_HORIZONTAL);
+        int pad = (int) (28 * d);
+        col.setPadding(pad, 0, pad, 0);
+
+        FrameLayout box = new FrameLayout(this);
+        ImageView iv = new ImageView(this);
+        if (icon != null) {
+            iv.setImageDrawable(icon);
+            ColorMatrix cm = new ColorMatrix();
+            cm.setSaturation(0f);
+            ColorMatrix dim = new ColorMatrix();
+            dim.setScale(0.55f, 0.55f, 0.55f, 1f);
+            cm.postConcat(dim);
+            iv.setColorFilter(new ColorMatrixColorFilter(cm));
+        }
+        box.addView(iv, new FrameLayout.LayoutParams((int) (88 * d), (int) (88 * d), Gravity.CENTER));
+        TextView badge = new TextView(this);
+        badge.setText("\\uD83D\\uDD12");
+        badge.setTextSize(15f);
+        badge.setGravity(Gravity.CENTER);
+        GradientDrawable bgd = new GradientDrawable();
+        bgd.setColor(0xFFFFFFFF);
+        bgd.setCornerRadius(18 * d);
+        badge.setBackground(bgd);
+        box.addView(badge, new FrameLayout.LayoutParams((int) (36 * d), (int) (36 * d), Gravity.BOTTOM | Gravity.END));
+        col.addView(box, new LinearLayout.LayoutParams((int) (104 * d), (int) (104 * d)));
+
+        TextView t1 = new TextView(this);
+        t1.setText("此应用已被 " + by + " 限制");
+        t1.setTextColor(0xFFFFFFFF);
+        t1.setTextSize(21f);
+        t1.setTypeface(Typeface.DEFAULT_BOLD);
+        t1.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams l1 = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        l1.topMargin = (int) (20 * d);
+        col.addView(t1, l1);
+
+        TextView t2 = new TextView(this);
+        t2.setText("「" + label + "」暂时无法打开\\n可以去聊天里请 TA 解锁");
+        t2.setTextColor(0xFFA1A1A6);
+        t2.setTextSize(14f);
+        t2.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams l2 = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        l2.topMargin = (int) (10 * d);
+        col.addView(t2, l2);
+
+        root.addView(col, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+
+        LinearLayout bottom = new LinearLayout(this);
+        bottom.setOrientation(LinearLayout.VERTICAL);
+        bottom.setGravity(Gravity.CENTER_HORIZONTAL);
+        TextView go = pill("去聊天请求解锁", 0xFFFFFFFF, 0xFF000000, d);
+        TextView back = pill("返回", 0x1FFFFFFF, 0xFFFFFFFF, d);
+        LinearLayout.LayoutParams lb = new LinearLayout.LayoutParams((int) (300 * d), (int) (50 * d));
+        LinearLayout.LayoutParams lb2 = new LinearLayout.LayoutParams((int) (300 * d), (int) (50 * d));
+        lb2.topMargin = (int) (12 * d);
+        bottom.addView(go, lb);
+        bottom.addView(back, lb2);
+        FrameLayout.LayoutParams lp0 = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        lp0.bottomMargin = (int) (56 * d);
+        root.addView(bottom, lp0);
+
+        go.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                openChat();
+            }
+        });
+        back.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                performGlobalAction(GLOBAL_ACTION_HOME);
+                hideOverlay();
+            }
+        });
+
+        WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSLUCENT);
+        wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+        wm.addView(root, lp);
+        overlay = root;
+        shownPkg = pkg;
+    }
+
+    private void hideOverlay() {
+        if (overlay != null) {
+            try {
+                wm.removeView(overlay);
+            } catch (Throwable ignore) {
+            }
+            overlay = null;
+            shownPkg = "";
+        }
+    }
+
+    /** 回到 Celyra，并让页面自动跳到智能遥控的聊天 */
+    private void openChat() {
+        try {
+            getSharedPreferences("celyra_lock", MODE_PRIVATE).edit().putBoolean("goChat", true).apply();
+            hideOverlay();
+            Intent i = new Intent(this, MainActivity.class);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+            startActivity(i);
+        } catch (Throwable t) {
+            performGlobalAction(GLOBAL_ACTION_HOME);
+        }
+    }
+
     @Override
     public void onInterrupt() {
+        hideOverlay();
+    }
+
+    @Override
+    public void onDestroy() {
+        hideOverlay();
+        super.onDestroy();
     }
 }
 ''' % {'pkg': pkg})
@@ -238,6 +402,21 @@ public class CelyraLockPlugin extends Plugin {
         } catch (Throwable t) {
             call.reject("读取应用列表失败");
         }
+    }
+
+    /** 点了「去聊天请求解锁」之后，页面来问一下要不要自动跳到聊天 */
+    @PluginMethod
+    public void popGoChat(PluginCall call) {
+        boolean g = false;
+        try {
+            SharedPreferences sp = getContext().getSharedPreferences("celyra_lock", Context.MODE_PRIVATE);
+            g = sp.getBoolean("goChat", false);
+            if (g) sp.edit().putBoolean("goChat", false).apply();
+        } catch (Throwable ignore) {
+        }
+        JSObject o = new JSObject();
+        o.put("go", g);
+        call.resolve(o);
     }
 
     /** 同步「现在要锁哪些应用」给无障碍服务 */
