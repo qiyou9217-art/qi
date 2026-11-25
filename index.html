@@ -8839,6 +8839,7 @@ if(R.native&&LK()){R.load(0);setInterval(push,1500);setInterval(()=>{if(!documen
 .cq-done .cq-bt{flex-direction:column}.cq-done .cq-bt button{flex:none}
 .cq-ld{text-align:center;padding:90px 10px}.cq-ld .cq-hs{display:inline-flex;gap:6px}.cq-ld .cq-hs i{font-style:normal;font-size:30px;color:#ff6f91;animation:cqh 1s infinite}.cq-ld .cq-hs i:nth-child(2){animation-delay:.15s}.cq-ld .cq-hs i:nth-child(3){animation-delay:.3s}@keyframes cqh{50%{transform:translateY(-10px);opacity:.4}}
 .cq-ld p{margin:16px 0 0;color:#a08a96;font-size:14px}
+.cq-er{color:#e0506f!important;font-size:13px!important;margin:0 0 16px!important}
 /* 结果 */
 .cq-hd{margin-top:8px;padding:20px 18px;border-radius:28px;background:#fff;box-shadow:0 10px 32px rgba(255,111,145,.16);text-align:center}
 .cq-ring{position:relative;width:132px;height:132px;margin:0 auto}.cq-ring svg{width:132px;height:132px;transform:rotate(-90deg)}.cq-ring .cq-c1{fill:none;stroke:#fde3ea;stroke-width:10}.cq-ring .cq-c2{fill:none;stroke:#ff6f91;stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset 1s}
@@ -8902,23 +8903,46 @@ const genQs=async(c,mod)=>{const m=MODS[mod],prev=FD(c.id).rounds.filter(r=>r.mo
 3. 提问对象是用户「${me()}」，对方是「${nm(c)}」，两人是情侣；问题可以用「你……」的形式。
 只输出 JSON 数组，包含 10 个字符串，不要任何其他文字。`;
  let err='返回的内容不是 10 道题';
- for(let i=0;i<2;i++){try{const o=pj(await llm(sys,[{role:'user',content:'开始出题'}]));const arr=(Array.isArray(o)?o:(o&&o.questions)||[]).map(x=>typeof x==='string'?x:(x&&(x.q||x.question))||'').map(x=>String(x).trim()).filter(Boolean);
-  if(arr.length>=10)return arr.slice(0,10);err='只生成了 '+arr.length+' 道题'}catch(e){err=String(e&&e.message||e)}}
+ for(let i=0;i<2;i++){try{const raw=await llm(sys,[{role:'user',content:'开始出题'}]),o=pj(raw);
+  let arr=(Array.isArray(o)?o:(o&&o.questions)||[]).map(x=>typeof x==='string'?x:(x&&(x.q||x.question))||'').map(x=>String(x).trim()).filter(Boolean);
+  if(arr.length<10)arr=String(raw).replace(/<think>[\s\S]*?<\/think>/g,'').split(/\n+/).map(x=>x.replace(/^\s*(\d{1,2}\s*[\.、．:：)）]|[-*•]|Q\d*[:：])\s*/,'').replace(/^["“「]|["”」,，]$/g,'').trim()).filter(x=>x.length>=4&&x.length<=80);
+  if(arr.length>=10)return arr.slice(0,10);err='只生成了 '+arr.length+' 道题；返回开头：'+String(raw).replace(/\s+/g,' ').slice(0,40)}catch(e){err=String(e&&e.message||e)}}
  throw err};
 
 /* ===== 生成对方的回答（10 题一起）+ 默契度 ===== */
-const genAns=async(c,r)=>{const m=MODS[r.mod],name=c.name;
- const body=r.qs.map((q,i)=>`${i+1}. Q：${q}\n   ${me()}的回答：${(r.ans[i]||'').trim()||'（跳过）'}`).join('\n');
+const parseAns=t=>{t=String(t).replace(/<think>[\s\S]*?<\/think>/g,'').replace(/```[a-z]*/g,'');
+ const num=x=>{const n=Math.round(+String(x).match(/\d+/));return Number.isFinite(n)?Math.max(0,Math.min(100,n)):null};
+ /* 1) JSON */
+ const o=pj(t);if(o&&!Array.isArray(o)&&Array.isArray(o.a)&&o.a.length>=10){const s=(Array.isArray(o.s)?o.s:[]).map(x=>num(x)||60);while(s.length<10)s.push(60);return{fa:o.a.slice(0,10).map(String),sc:s.slice(0,10),idx:num(o.idx)==null?Math.round(s.slice(0,10).reduce((x,y)=>x+y,0)/10):num(o.idx),sum:String(o.sum||'')}}
+ /* 2) 【1】…【2】… 标签格式；3) 「1.」「1、」编号格式 */
+ for(const re of [/【\s*(\d{1,2})\s*】/g,/(?:^|\n)\s*(\d{1,2})\s*[\.、．:：)）]\s*/g]){
+  const marks=[...t.matchAll(re)];if(marks.length<10)continue;
+  const a=[],s=[];marks.forEach((m,i)=>{const end=i+1<marks.length?marks[i+1].index:t.length;let seg=t.slice(m.index+m[0].length,end);
+   seg=seg.replace(/【\s*(总评|指数)[\s\S]*$/,'');
+   const sc=seg.match(/默契度\s*[:：]?\s*(\d{1,3})/);seg=seg.replace(/[（(]?\s*默契度\s*[:：]?\s*\d{1,3}\s*[）)]?/g,'').trim();
+   a.push(seg);s.push(sc?num(sc[1]):60)});
+  if(a.length>=10){const idm=t.match(/【\s*指数\s*】\s*(\d{1,3})/),sm=t.match(/【\s*总评\s*】\s*([\s\S]*?)(?=【|$)/),s10=s.slice(0,10);
+   return{fa:a.slice(0,10),sc:s10,idx:idm?num(idm[1]):Math.round(s10.reduce((x,y)=>x+y,0)/10),sum:sm?sm[1].trim():''}}}
+ return null};
+const genAns=async(c,r)=>{const m=MODS[r.mod];
+ const body=r.qs.map((q,i)=>`第${i+1}题：${q}\n${me()}的回答：${(r.ans[i]||'').trim()||'（没有回答）'}`).join('\n\n');
+ const sys=`你是「情侣问答」的代笔助手，要替下面这位角色回答问题。必须严格按用户给的格式输出，不要输出格式以外的任何文字，不要出戏聊天。\n\n角色设定：\n${personaOf(c)}`;
  const msg=`我们在玩情侣问答（板块：${m.n}）。下面是 10 道题和${me()}的回答。
-请你以${name}的身份，对每道题给出你自己的回答：先独立作答，不要被对方的答案左右；口语化，符合你的人设和你们的关系，每题 1~2 句，可以带点小情绪。${r.mod==='nsfw'?'\n这是成年人之间的私密话题，保持角色，可以大胆撩人，但不要出戏。':''}
-然后对比双方的答案，给每题打「默契度」0~100（两人的答案有多契合），再给整体「默契指数」0~100，和一句 25 字内的总评（用你的口吻）。
+请你以${c.name}的身份，对每道题给出你自己的回答：先独立作答，不要被对方的答案左右；口语化，符合你的人设和你们的关系，每题 1~2 句，可以带点小情绪。${r.mod==='nsfw'?'\n这是成年人之间的私密话题，保持角色，可以大胆撩人。':''}
+然后对比双方的答案，给每题打「默契度」（两人的答案有多契合，0~100 的整数），再给整体「默契指数」（0~100 的整数）和一句 25 字内的总评（用你的口吻）。
+
 ${body}
-只输出 JSON：{"a":["10 个回答"],"s":[10 个整数],"idx":整数,"sum":"总评"}，不要任何其他文字。`;
+
+严格按这个格式输出，共 10 题：
+【1】你对第 1 题的回答
+默契度：整数
+【2】你对第 2 题的回答
+默契度：整数
+……（一直写到【10】）
+【总评】一句话
+【指数】整数`;
  let err='返回的内容不是答案格式';
- for(let i=0;i<2;i++){try{const o=pj(await llm(personaOf(c),[{role:'user',content:msg}]));
-  if(o&&Array.isArray(o.a)&&o.a.length>=10){const s=(Array.isArray(o.s)?o.s:[]).map(x=>Math.max(0,Math.min(100,Math.round(+x||0))));while(s.length<10)s.push(60);
-   const idx=Number.isFinite(+o.idx)&&o.idx!==''?Math.max(0,Math.min(100,Math.round(+o.idx))):Math.round(s.slice(0,10).reduce((x,y)=>x+y,0)/10);
-   return{fa:o.a.slice(0,10).map(x=>String(x)),sc:s.slice(0,10),idx,sum:String(o.sum||'')}}err='只拿到 '+((o&&o.a&&o.a.length)||0)+' 个回答'}catch(e){err=String(e&&e.message||e)}}
+ for(let i=0;i<2;i++){try{const raw=await llm(sys,[{role:'user',content:msg}]),o=parseAns(raw);if(o)return o;err='没能读出 10 个回答；返回开头：'+String(raw).replace(/\s+/g,' ').slice(0,50)}catch(e){err=String(e&&e.message||e)}}
  throw err};
 
 /* ===== 页面 ===== */
@@ -8931,53 +8955,51 @@ function cqApp(r){
 
  /* —— 首页 —— */
  const home=()=>{st.view='home';st.rid=null;const fr=friends(),f=fOf(st.sel);
-  let body=`<div class="cq-h1">情侣<i>问答</i></div><div class="cq-sub">每个好友一本独立的问答册，互不干扰</div>`;
+  let body=`<div class="cq-h1">情侣<i>问答</i></div>`;
   if(!fr.length)body+='<div class="cq-em">还没有好友，先去微信添加一位</div>';
   else{
    body+=`<div class="cq-fr">${fr.map(c=>`<button class="cq-f${c.id===st.sel?' cq-on':''}" data-a="sel" data-id="${c.id}">${avI(avOf(c))}<span>${esc(nm(c))}</span></button>`).join('')}</div>`;
-   const dn=doneOf(f),avg=dn.length?Math.round(dn.reduce((s,x)=>s+x.idx,0)/dn.length):null;
-   body+=`<div class="cq-pair"><div class="cq-hs">${avI(S.me.avatar||DEF)}<span class="cq-hr">♥</span>${avI(avOf(f))}</div><div class="cq-tx"><b>${esc(me())} & ${esc(nm(f))}</b><span>已完成 ${dn.length} 轮问答</span></div><div class="cq-sc"><em>${avg==null?'--':avg}</em><small>平均默契</small></div></div>`;
-   body+='<div class="cq-lb">选一个板块，开始十问十答</div>';
+   body+=`<div class="cq-pair"><div class="cq-hs">${avI(S.me.avatar||DEF)}<span class="cq-hr">♥</span>${avI(avOf(f))}</div><div class="cq-tx"><b>${esc(me())} & ${esc(nm(f))}</b></div></div>`;
+   body+='<div class="cq-lb"></div>';
    body+=Object.keys(MODS).map(k=>{const m=MODS[k],rs=FD(f.id).rounds.filter(x=>x.mod===k),on=rs.find(x=>x.status!=='done');
-    const stt=on?(on.status==='answering'?`继续 ${on.ans.filter(a=>a.trim()).length}/10`:'待查看'):(rs.length?`已答 ${rs.length} 轮`:'开始');
-    return `<button class="cq-md ${m.cls}" data-a="mod" data-k="${k}">${k==='nsfw'?'<span class="cq-18">18+</span>':''}<span class="cq-ico">${m.ic}</span><span class="cq-tx"><b>${m.n}</b><span>${m.sub} · 10 道题</span></span><span class="cq-st">${stt}</span></button>`}).join('');
+    return `<button class="cq-md ${m.cls}" data-a="mod" data-k="${k}"><span class="cq-ico">${m.ic}</span><span class="cq-tx"><b>${m.n}</b></span>${on?'<span class="cq-st">继续</span>':''}</button>`}).join('');
    const rec=FD(f.id).rounds.filter(x=>x.status==='done').sort((a,b)=>b.t-a.t);
    if(rec.length)body+=`<div class="cq-lb">问答记录</div>`+rec.map(x=>`<button class="cq-rc" data-a="open" data-id="${x.id}"><span class="cq-tg" style="${MODS[x.mod].tg}">${MODS[x.mod].n.split(' ')[0]}</span><span class="cq-tx"><b>${esc(x.sum||lvOf(x.idx))}</b>${dt(x.t)}</span><em>${x.idx}</em></button>`).join('')}
   r.innerHTML=`<div class="cq">${top('情侣问答','close')}<div class="cq-bd">${body}</div>${st.sheet?sheetH():''}</div>`};
- const sheetH=()=>`<div class="cq-sheet"><div class="cq-sbg" data-a="sx"></div><div class="cq-sp"><h3>NSFW 板块含成人话题</h3><p>这个板块的问题偏亲密、暧昧，仅限成年人使用。<br>确认你已年满 18 周岁，再继续吗？</p><div class="cq-bt"><button data-a="sx">取消</button><button class="cq-p" data-a="ok18">我已成年，继续</button></div></div></div>`;
+ const sheetH=()=>`<div class="cq-sheet"><div class="cq-sbg" data-a="sx"></div><div class="cq-sp"><h3>确认年龄</h3><p>NSFW 板块含成人话题，需年满 18 周岁</p><div class="cq-bt"><button data-a="sx">取消</button><button class="cq-p" data-a="ok18">我已成年，继续</button></div></div></div>`;
 
  /* —— 出题中 —— */
  const loading=(txt)=>{r.innerHTML=`<div class="cq">${top('')}<div class="cq-bd"><div class="cq-ld"><div class="cq-hs"><i>♥</i><i>♥</i><i>♥</i></div><p>${esc(txt)}</p></div></div></div>`};
  const startMod=async k=>{const f=fOf(st.sel);if(!f||st.busy)return;
   const on=FD(f.id).rounds.find(x=>x.mod===k&&x.status!=='done');
   if(on){st.rid=on.id;return on.status==='answering'?ans():fin()}
-  st.busy=1;loading(`正在为你和 ${nm(f)} 准备 10 道题…`);
+  st.busy=1;loading('正在出题…');
   try{const qs=await genQs(f,k),x={id:uid(),mod:k,t:Date.now(),qs,ans:Array(10).fill(''),step:0,status:'answering'};FD(f.id).rounds.push(x);save();st.rid=x.id;st.busy=0;ans()}
   catch(e){st.busy=0;toast('出题失败：'+String(e&&e.message||e).slice(0,70));home()}};
 
  /* —— 作答：一次一题 —— */
  const ans=()=>{st.view='ans';const x=cur();if(!x)return home();const i=x.step,m=MODS[x.mod],last=i===9;
-  r.innerHTML=`<div class="cq">${top(m.n+' · '+(i+1)+'/10')}<div class="cq-pg"><i style="width:${(i+1)*10}%"></i></div><div class="cq-bd">
+  r.innerHTML=`<div class="cq">${top(m.n)}<div class="cq-pg"><i style="width:${(i+1)*10}%"></i></div><div class="cq-bd">
    <div class="cq-dots">${x.qs.map((_,j)=>`<button data-a="jump" data-i="${j}" class="${j===i?'cq-on':x.ans[j].trim()?'cq-fi':''}"></button>`).join('')}</div>
    <div class="cq-qc"><span class="cq-qn">Q${i+1}</span><div class="cq-qt">${esc(x.qs[i])}</div><textarea class="cq-ta" id="cqta" placeholder="写下你的回答…">${esc(x.ans[i])}</textarea></div>
-   <div class="cq-bt"><button data-a="prev" ${i===0?'disabled':''}>上一题</button><button class="cq-p" data-a="next">${last?'答完了':'下一题'}</button></div><div class="cq-sk"><button data-a="skip">这题跳过</button></div></div></div>`;
+   <div class="cq-bt"><button data-a="prev" ${i===0?'disabled':''}>上一题</button><button class="cq-p" data-a="next">${last?'答完了':'下一题'}</button></div></div></div>`;
   const ta=q('#cqta');let tm=0;ta.oninput=()=>{x.ans[i]=ta.value;clearTimeout(tm);tm=setTimeout(save,400)}};
  const keep=()=>{const x=cur(),ta=q('#cqta');if(x&&ta){x.ans[x.step]=ta.value;save()}};
  /* —— 答完：去看对方的回答 —— */
  const fin=()=>{st.view='fin';const x=cur(),f=fOf(st.sel);if(!x)return home();x.status='answered';save();
-  r.innerHTML=`<div class="cq">${top(MODS[x.mod].n)}<div class="cq-bd"><div class="cq-done"><div class="cq-big">💌</div><h2>10 道题都答完啦</h2><p>看看 ${esc(nm(f))} 会怎么回答你～<br>对方的答案会和你的放在一起，还有默契指数</p><div class="cq-bt"><button class="cq-p" data-a="see">查看 ${esc(nm(f))} 的回答</button><button data-a="redo">回去改改</button></div></div></div></div>`};
- const see=async()=>{const x=cur(),f=fOf(st.sel);if(!x||!f||st.busy)return;st.busy=1;loading(`${nm(f)} 正在偷偷写答案…`);
+  r.innerHTML=`<div class="cq">${top(MODS[x.mod].n)}<div class="cq-bd"><div class="cq-done"><div class="cq-big">💌</div><h2>答完啦</h2>${st.err?`<p class="cq-er">${esc(st.err)}</p>`:''}<div class="cq-bt"><button class="cq-p" data-a="see">查看 ${esc(nm(f))} 的回答</button><button data-a="redo">回去改改</button></div></div></div></div>`;st.err=''};
+ const see=async()=>{const x=cur(),f=fOf(st.sel);if(!x||!f||st.busy)return;st.busy=1;st.err='';loading(`${nm(f)} 正在写答案…`);
   try{const o=await genAns(f,x);Object.assign(x,o,{status:'done',t:Date.now()});save();st.busy=0;res()}
-  catch(e){st.busy=0;toast('生成失败：'+String(e&&e.message||e).slice(0,70)+'，可以再点一次');fin()}};
+  catch(e){st.busy=0;st.err='生成失败：'+String(e&&e.message||e).slice(0,120);fin()}};
 
  /* —— 结果：Q / A / 备注 —— */
  const res=()=>{st.view='res';const x=cur(),f=fOf(st.sel);if(!x||x.status!=='done')return home();const name=nm(f),C=2*Math.PI*54;
   r.innerHTML=`<div class="cq">${top(MODS[x.mod].n)}<div class="cq-bd">
-   <div class="cq-hd"><div class="cq-ring"><svg viewBox="0 0 132 132"><circle class="cq-c1" cx="66" cy="66" r="54"/><circle class="cq-c2" id="cqc" cx="66" cy="66" r="54" stroke-dasharray="${C}" stroke-dashoffset="${C}"/></svg><div><em>${x.idx}</em><small>默契指数</small></div></div><span class="cq-lv">${lvOf(x.idx)}</span>${x.sum?`<div class="cq-sm">${esc(x.sum)}</div>`:''}</div>
-   ${x.qs.map((qq,i)=>`<div class="cq-it" style="animation-delay:${i*.07}s"><div class="cq-q"><b>Q：</b>${esc(qq)}</div><div class="cq-a"><b>A：</b>${esc(x.ans[i].trim()||'（跳过）')}</div><div class="cq-fa"><b>${esc(name)}：</b>${esc(x.fa[i])}</div><div class="cq-m"><span class="${x.sc[i]>=80?'cq-hi':x.sc[i]<40?'cq-lo':''}">${lvOf(x.sc[i])} ${x.sc[i]}</span></div></div>`).join('')}
-   <div class="cq-ac"><button class="cq-p" data-a="copy">复制整份问答</button><button data-a="again">再来一轮 ${esc(MODS[x.mod].n)}</button><button data-a="back">返回</button></div><button class="cq-dl" data-a="del">删除这一轮</button></div></div>`;
+   <div class="cq-hd"><div class="cq-ring"><svg viewBox="0 0 132 132"><circle class="cq-c1" cx="66" cy="66" r="54"/><circle class="cq-c2" id="cqc" cx="66" cy="66" r="54" stroke-dasharray="${C}" stroke-dashoffset="${C}"/></svg><div><em>${x.idx}</em><small>默契指数</small></div></div>${x.sum?`<div class="cq-sm">${esc(x.sum)}</div>`:''}</div>
+   ${x.qs.map((qq,i)=>`<div class="cq-it" style="animation-delay:${i*.07}s"><div class="cq-q"><b>Q：</b>${esc(qq)}</div><div class="cq-a"><b>A：</b>${esc(x.ans[i].trim())}</div><div class="cq-fa"><b>${esc(name)}：</b>${esc(x.fa[i])}</div></div>`).join('')}
+   <div class="cq-ac"><button class="cq-p" data-a="copy">复制</button><button data-a="again">再来一轮</button><button data-a="back">返回</button></div><button class="cq-dl" data-a="del">删除这一轮</button></div></div>`;
   setTimeout(()=>{const c=q('#cqc');if(c)c.style.strokeDashoffset=C*(1-x.idx/100)},60)};
- const toText=()=>{const x=cur(),name=nm(fOf(st.sel));return `【${MODS[x.mod].n}】默契指数 ${x.idx}\n`+x.qs.map((qq,i)=>`Q：${qq}\nA：${x.ans[i].trim()||'（跳过）'}\n${name}：${x.fa[i]}`).join('\n\n')};
+ const toText=()=>{const x=cur(),name=nm(fOf(st.sel));return x.qs.map((qq,i)=>`Q：${qq}\nA：${x.ans[i].trim()}\n${name}：${x.fa[i]}`).join('\n\n')};
  const copy=async t=>{try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement('textarea');a.value=t;document.body.append(a);a.select();try{document.execCommand('copy')}catch(_){}a.remove()}toast('已复制')};
 
  r.onclick=async e=>{const t=e.target.closest('[data-a]');if(!t)return;const a=t.dataset.a;
